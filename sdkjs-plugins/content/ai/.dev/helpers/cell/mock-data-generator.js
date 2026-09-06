@@ -90,9 +90,12 @@
         if (typeof range !== "string" || !range.trim())
             return null;
 
+        Asc.scope.range = range.trim();
+
         return await Asc.Editor.callCommand(function () {
+            debugger;
             const worksheet = Api.GetActiveSheet();
-            const headerRange = worksheet.GetRange(range);
+            const headerRange = worksheet.GetRange(Asc.scope.range);
 
             if (!headerRange)
                 return null;
@@ -119,14 +122,15 @@
         Asc.scope.colCount = header.fields.length;
 
         await Asc.Editor.callCommand(function () {
+            debugger;
             const worksheet = Api.GetActiveSheet();
             const headerRange = worksheet.GetRange(Asc.scope.address);
             const fillRange = headerRange.Resize(Asc.scope.rowCount + 1, Asc.scope.colCount);
 
-            for (let rowIndex = 1; rowIndex <= Asc.scope.rowCount; rowIndex++) {
+            for (let rowIndex = 2; rowIndex <= Asc.scope.rowCount; rowIndex++) {
                 let row = fillRange.GetRows(rowIndex);
-                for (let columnIndex = 0; columnIndex < Asc.scope.colCount; columnIndex++) {
-                    row.GetCells(columnIndex).SetValue(`Mocked_${rowIndex}_${columnIndex}`);
+                for (let columnIndex = 1; columnIndex <= Asc.scope.colCount; columnIndex++) {
+                    row.GetCells(columnIndex).SetValue(`Mocked_${rowIndex - 1}_${columnIndex}`);
                 }
             }
         })
