@@ -7297,7 +7297,6 @@ HELPERS.cell.push((function () {
         Asc.scope.range = range.trim();
 
         return await Asc.Editor.callCommand(function () {
-            debugger;
             const worksheet = Api.GetActiveSheet();
             const headerRange = worksheet.GetRange(Asc.scope.range);
 
@@ -7320,21 +7319,93 @@ HELPERS.cell.push((function () {
         return header;
     }
 
-    const mockLinesBelowHeader = async function (header, rows) {
+    const parseMatrixFromAIResponse = function (aiResponse, rowsAmount, columnsAmount) {
+        if (!aiResponse)
+            return null;
+        
+        const matchedArrays = aiResponse.match(/\[[\s\S]*\]/);
+
+        try {
+            const parsed = JSON.parse(matchedArrays[0]);
+
+            if (!Array.isArray(parsed)
+                || !parsed.every(row => Array.isArray(row))
+                || parsed.length !== rowsAmount
+                || parsed.some(row => row.length !== columnsAmount)
+            )
+                return null;
+
+            return parsed;
+
+        } catch (error) {
+            throw new window.AgentState.ToolError("Failed to parse AI response as JSON.");
+        }
+    }
+
+    const generateMockMatrix = async function (fields, rows) {
+        const mappedFields = fields.map(field => field === "" ? "[Empty]" : field);
+
+        const argPrompt = [
+            "You are a mock data generator for a spreadsheet table.",
+            `Column names in order are: ${mappedFields.join(", ")}.`,
+            `Generate ${rows} rows of realistic mock data for each column, based on the column name.` +
+            "Each value must match the meaning of its column (e.g. if the column is 'Email', generate realistic email addresses).",
+            "If a column is marked as '[Empty]', consider that all column values should be empty strings.",
+            "Strict rules:",
+            `1. Return only a JSON array of arrays (row-major), containing exactly ${rows} rows x ${fields.length} columns.`,
+            "2. No markdown, no code fences, no explanations, no extra text, only the JSON array.",
+            '3. Format example: [["cell_1_1", "cell_1_2"], ["cell_2_1", "cell_2_2"]]',
+        ].join("\n");
+
+        const requestEngine = AI.Request.create(AI.ActionType.Chat);
+
+        if (!requestEngine)
+            throw new window.AgentState.ToolError("AI Request engine is not available.");
+
+        let isSendedEndLongAction = false;
+
+        async function checkEndAction() {
+            if (!isSendedEndLongAction) {
+                await Asc.Editor.callMethod("EndAction", [
+                    "Block",
+                    `AI (${requestEngine.modelUI.name})`
+                ]);
+
+                isSendedEndLongAction = true;
+            }
+        }
+
+        await Asc.Editor.callMethod("StartAction", [
+            "Block",
+            `AI (${requestEngine.modelUI.name})`
+        ])
+        await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+
+        const aiResult = await requestEngine.chatRequest(argPrompt, false);
+        
+        await checkEndAction();
+        await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+
+        return parseMatrixFromAIResponse(aiResult, rows, fields.length);
+    }
+
+    const insertMatrixBelowHeader = async function (header, matrix) {
         Asc.scope.address = header.address;
-        Asc.scope.rowCount = rows;
-        Asc.scope.colCount = header.fields.length;
+        Asc.scope.matrix = matrix;
+        Asc.scope.colCount = (matrix[0] || []).length;
+        Asc.scope.rowCount = matrix.length;
 
         await Asc.Editor.callCommand(function () {
             debugger;
+
             const worksheet = Api.GetActiveSheet();
             const headerRange = worksheet.GetRange(Asc.scope.address);
             const fillRange = headerRange.Resize(Asc.scope.rowCount + 1, Asc.scope.colCount);
 
-            for (let rowIndex = 2; rowIndex <= Asc.scope.rowCount; rowIndex++) {
-                let row = fillRange.GetRows(rowIndex);
-                for (let columnIndex = 1; columnIndex <= Asc.scope.colCount; columnIndex++) {
-                    row.GetCells(columnIndex).SetValue(`Mocked_${rowIndex - 1}_${columnIndex}`);
+            for (let rowIndex = 0; rowIndex < Asc.scope.rowCount; rowIndex++) {
+                let row = fillRange.GetRows(rowIndex + 1);
+                for (let columnIndex = 0; columnIndex < Asc.scope.colCount; columnIndex++) {
+                    row.GetCells(columnIndex).SetValue(Asc.scope.matrix[rowIndex][columnIndex]);
                 }
             }
         })
@@ -7347,7 +7418,22 @@ HELPERS.cell.push((function () {
         if (!header || header.fields.length === 0)
             throw new window.AgentState.ToolError("No header selected or found in the current worksheet.");
 
-        await mockLinesBelowHeader(header, rows);
+        const fields = header.fields
+            .map(field => 
+                String(field === null || field === undefined ? "" : field).trim()
+            );
+
+        const nonEmptyFields = fields.filter(field => field !== "");
+
+        if (nonEmptyFields.length === 0)
+            throw new window.AgentState.ToolError("The selected header contains only empty fields.");
+
+        const matrix = await generateMockMatrix(fields, rows);
+
+        if (!matrix)
+            throw new window.AgentState.ToolError("AI returned an invalid matrix shape");
+
+        await insertMatrixBelowHeader(header, matrix);
 
         return {
             status: "ok",
