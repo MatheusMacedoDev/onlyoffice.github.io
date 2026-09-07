@@ -7402,10 +7402,10 @@ HELPERS.cell.push((function () {
             const headerRange = worksheet.GetRange(Asc.scope.address);
             const fillRange = headerRange.Resize(Asc.scope.rowCount + 1, Asc.scope.colCount);
 
-            for (let rowIndex = 0; rowIndex < Asc.scope.rowCount; rowIndex++) {
-                let row = fillRange.GetRows(rowIndex + 1);
-                for (let columnIndex = 0; columnIndex < Asc.scope.colCount; columnIndex++) {
-                    row.GetCells(columnIndex).SetValue(Asc.scope.matrix[rowIndex][columnIndex]);
+            for (let rowIndex = 2; rowIndex <= Asc.scope.rowCount + 1; rowIndex++) {
+                let row = fillRange.GetRows(rowIndex);
+                for (let columnIndex = 1; columnIndex <= Asc.scope.colCount; columnIndex++) {
+                    row.GetCells(columnIndex).SetValue(Asc.scope.matrix[rowIndex - 2][columnIndex - 1]);
                 }
             }
         })
