@@ -34,39 +34,39 @@
     let func = new RegisteredFunction({
         name: "mockDataGenerator",
         description:
-            "Generate mock data for a selected table header with type infer based on the name of each field. If no header is selected, works with the current table header.",
+            "Generate mock data for a selected table header with type infer based on the name of each field. If no header is selected, works with header position provided by prompt parameter.",
         parameters: {
-        type: "object",
-        properties: {
-            range: {
-                type: "string",
-                description: "Cell range with the table header (e.g., 'A1:C1'). If omitted, uses the selected header.",
+            type: "object",
+            properties: {
+                range: {
+                    type: "string",
+                    description: "Cell range with the table header (e.g., 'A1:C1'). If omitted, uses the selected header.",
+                },
+                rows: {
+                    type: "number",
+                    description: "Amount of rows to fill with generated mock data.",
+                    default: 10,
+                },
             },
-            rows: {
-                type: "number",
-                description: "Amount of rows to fill with generated mock data.",
-                default: 10,
-            },
-        },
-        required: [],
+            required: [],
         },
         examples: [
-        {
-            prompt: "Generate data for the selected table header",
-            arguments: {},
-        },
-        {
-            prompt: "Fill the table below the current header with realistic fake data",
-            arguments: {},
-        },
-        {
-            prompt: "Generate 20 rows of mock data for the selected header",
-            arguments: { rows: 20 },
-        },
-        {
-            prompt: "Create sample data with 5 rows for the header range A1:C1",
-            arguments: { range: "A1:C1", rows: 5 },
-        }
+            {
+                prompt: "Generate data for the selected table header",
+                arguments: {},
+            },
+            {
+                prompt: "Fill the table below the current header with realistic fake data",
+                arguments: {},
+            },
+            {
+                prompt: "Generate 20 rows of mock data for the selected header",
+                arguments: { rows: 20 },
+            },
+            {
+                prompt: "Create sample data with 5 rows for the header range A1:C1",
+                arguments: { range: "A1:C1", rows: 5 },
+            }
         ]
     });
 
@@ -192,8 +192,6 @@
         Asc.scope.rowCount = matrix.length;
 
         await Asc.Editor.callCommand(function () {
-            debugger;
-
             const worksheet = Api.GetActiveSheet();
             const headerRange = worksheet.GetRange(Asc.scope.address);
             const fillRange = headerRange.Resize(Asc.scope.rowCount + 1, Asc.scope.colCount);
