@@ -177,10 +177,20 @@
         ])
         await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
 
-        const aiResult = await requestEngine.chatRequest(argPrompt, false);
-        
-        await checkEndAction();
-        await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+        let aiResult;
+
+        try {
+            aiResult = await requestEngine.chatRequest(argPrompt, false);
+        } catch (error) {
+            throw new window.AgentState.ToolError(
+                'AI request failed while generating mocked matrix. ' +
+                'Error message: ' + (error?.message || 'Unknown')
+            );
+        }
+        finally {
+            await checkEndAction();
+            await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+        }
 
         return parseMatrixFromAIResponse(aiResult, rows, fields.length);
     }
