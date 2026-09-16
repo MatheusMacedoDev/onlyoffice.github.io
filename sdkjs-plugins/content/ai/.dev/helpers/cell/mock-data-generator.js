@@ -212,17 +212,35 @@
         Asc.scope.colCount = (matrix[0] || []).length;
         Asc.scope.rowCount = matrix.length;
 
-        await Asc.Editor.callCommand(function () {
+        return await Asc.Editor.callCommand(function () {
             const worksheet = Api.GetActiveSheet();
             const headerRange = worksheet.GetRange(Asc.scope.address);
             const fillRange = headerRange.Resize(Asc.scope.rowCount + 1, Asc.scope.colCount);
 
             for (let rowIndex = 2; rowIndex <= Asc.scope.rowCount + 1; rowIndex++) {
                 let row = fillRange.GetRows(rowIndex);
+
+                for (let columnIndex = 1; columnIndex <= Asc.scope.colCount; columnIndex++) {
+                    let cell = row.GetCells(columnIndex);
+                    let value = cell.GetValue();
+
+                    if (value !== null && value !== undefined && String(value).trim() !== "")
+                        return {
+                            error: `Cannot fill data below the header at ${Asc.scope.address}. The target area is not empty.`
+                        }
+                }
+
+            }
+
+            for (let rowIndex = 2; rowIndex <= Asc.scope.rowCount + 1; rowIndex++) {
+                let row = fillRange.GetRows(rowIndex);
+
                 for (let columnIndex = 1; columnIndex <= Asc.scope.colCount; columnIndex++) {
                     row.GetCells(columnIndex).SetValue(Asc.scope.matrix[rowIndex - 2][columnIndex - 1]);
                 }
             }
+
+            return null;
         })
     }
 
@@ -255,7 +273,10 @@
         if (!matrix)
             throw new window.AgentState.ToolError("AI returned an invalid matrix shape");
 
-        await insertMatrixBelowHeader(header, matrix);
+        const insertionResult = await insertMatrixBelowHeader(header, matrix);
+
+        if (insertionResult && insertionResult.error)
+            throw new window.AgentState.ToolError(insertionResult.error);
 
         return {
             status: "ok",
