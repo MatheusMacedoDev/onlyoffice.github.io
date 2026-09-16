@@ -87,8 +87,14 @@
     }
 
     const getHeaderFromRangeProperty = async function (range) {
-        if (typeof range !== "string" || !range.trim())
+        if (range === undefined)
             return null;
+
+        if (typeof range !== "string" || range.trim() === "")
+			throw new window.AgentState.ToolError(
+				'Parameter "range" must be a string compatible with some header like "A1:F1".' +
+                "Got: " + JSON.stringify(range)
+			);
 
         Asc.scope.range = range.trim();
 
@@ -97,7 +103,9 @@
             const headerRange = worksheet.GetRange(Asc.scope.range);
 
             if (!headerRange)
-                return null;
+                return {
+                    error: 'Range "' + Asc.scope.range + '" is invalid. Use a valid range format like "A1:F1".'
+                }
 
             return {
                 address: headerRange.GetAddress(true, true, "xlA1"),
@@ -108,6 +116,9 @@
 
     const getHeader = async function (range) {
         let header = await getHeaderFromRangeProperty(range);
+
+        if (header && header.error)
+            throw new window.AgentState.ToolError(header.error);
 
         if (!header)
             header = await getHeaderFromSelection();
