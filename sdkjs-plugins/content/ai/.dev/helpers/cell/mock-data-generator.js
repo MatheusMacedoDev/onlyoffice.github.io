@@ -227,7 +227,14 @@
     }
 
     func.call = async function (params) {
-        const rows = params.rows || 10;
+        const rows = params.rows ?? 10;
+
+        if (!Number.isInteger(rows))
+            throw new window.AgentState.ToolError('Parameter "rows" must be a positive integer.');
+
+        if (rows < 1 || rows > 500)
+            throw new window.AgentState.ToolError('Parameter "rows" must be between 1 and 500.');
+
         const header = await getHeader(params.range);
 
         if (!header || header.fields.length === 0)
