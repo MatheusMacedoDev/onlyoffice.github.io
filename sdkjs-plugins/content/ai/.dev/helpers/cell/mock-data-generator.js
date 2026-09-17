@@ -78,9 +78,11 @@
             if (!selection)
                 return null;
 
+            const headerRange = selection.Resize(1, selection.GetColumnsCount());
+
             return {
-                address: selection.GetAddress(true, true, "xlA1"),
-                fields: (selection.GetValue2() || [])[0] || []
+                address: headerRange.GetAddress(true, true, "xlA1"),
+                fields: headerRange.GetValue2()?.[0] ?? []
             }
 
         })
@@ -100,16 +102,18 @@
 
         return await Asc.Editor.callCommand(function () {
             const worksheet = Api.GetActiveSheet();
-            const headerRange = worksheet.GetRange(Asc.scope.range);
+            const parameterRange = worksheet.GetRange(Asc.scope.range);
 
-            if (!headerRange)
+            if (!parameterRange)
                 return {
                     error: 'Range "' + Asc.scope.range + '" is invalid. Use a valid range format like "A1:F1".'
                 }
 
+            const headerRange = parameterRange.Resize(1, parameterRange.GetColumnsCount());
+
             return {
                 address: headerRange.GetAddress(true, true, "xlA1"),
-                fields: (headerRange.GetValue2() || [])[0] || []
+                fields: headerRange.GetValue2()?.[0] ?? []
             }
         })
     }
