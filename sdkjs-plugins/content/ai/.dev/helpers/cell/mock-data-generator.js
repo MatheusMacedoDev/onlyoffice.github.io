@@ -70,6 +70,7 @@
         ]
     });
 
+
     const getHeaderFromSelection = async function () {
         return await Asc.Editor.callCommand(function () {
             const worksheet = Api.GetActiveSheet();
@@ -80,9 +81,19 @@
 
             const headerRange = selection.Resize(1, selection.GetColumnsCount());
 
+            const normalizeHeaderRangeFields = function (rawFields) {
+                if (rawFields === null || rawFields === undefined)
+                    return [];
+
+                if(Array.isArray(rawFields) && rawFields.length > 0 && Array.isArray(rawFields[0]))
+                    return rawFields[0];
+
+                return [rawFields];
+            }
+
             return {
                 address: headerRange.GetAddress(true, true, "xlA1"),
-                fields: headerRange.GetValue2()?.[0] ?? []
+                fields: normalizeHeaderRangeFields(headerRange.GetValue2())
             }
 
         })
@@ -111,9 +122,19 @@
 
             const headerRange = parameterRange.Resize(1, parameterRange.GetColumnsCount());
 
+            const normalizeHeaderRangeFields = function (rawFields) {
+                if (rawFields === null || rawFields === undefined)
+                    return [];
+
+                if(Array.isArray(rawFields) && rawFields.length > 0 && Array.isArray(rawFields[0]))
+                    return rawFields[0];
+
+                return [rawFields];
+            }
+
             return {
                 address: headerRange.GetAddress(true, true, "xlA1"),
-                fields: headerRange.GetValue2()?.[0] ?? []
+                fields: normalizeHeaderRangeFields(headerRange.GetValue2())
             }
         })
     }
