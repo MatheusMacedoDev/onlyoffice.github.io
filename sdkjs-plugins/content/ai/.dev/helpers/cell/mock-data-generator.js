@@ -223,13 +223,17 @@
             const fillRange = headerRange.Resize(Asc.scope.rowCount + 1, Asc.scope.colCount);
 
             for (let rowIndex = 2; rowIndex <= Asc.scope.rowCount + 1; rowIndex++) {
-                let row = fillRange.GetRows(rowIndex);
+                const row = fillRange.GetRows(rowIndex);
 
                 for (let columnIndex = 1; columnIndex <= Asc.scope.colCount; columnIndex++) {
-                    let cell = row.GetCells(columnIndex);
-                    let value = cell.GetValue();
+                    const cell = row.GetCells(columnIndex);
+                    const cellValue = cell.GetValue();
+                    const cellFormula = cell.GetFormula();
 
-                    if (value !== null && value !== undefined && String(value).trim() !== "")
+                    const isCellValueEmpty = (cellValue === null || cellValue === undefined || cellValue === "");
+                    const isCellFormulaEmpty = (cellFormula === null || cellFormula === undefined || cellFormula === "");
+
+                    if (!isCellValueEmpty || !isCellFormulaEmpty)
                         return {
                             error: `Cannot fill data below the header at ${Asc.scope.address}. The target area is not empty.`
                         }
