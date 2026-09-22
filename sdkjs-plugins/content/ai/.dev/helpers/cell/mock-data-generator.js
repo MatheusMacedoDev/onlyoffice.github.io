@@ -112,9 +112,6 @@
     }
 
     const getHeaderFromRangeProperty = async function (range) {
-        if (range === undefined)
-            return null;
-
         if (typeof range !== "string" || range.trim() === "")
 			throw new window.AgentState.ToolError(
 				'Parameter "range" must be a string compatible with some header like "A1:F1".' +
@@ -125,7 +122,14 @@
 
         return await Asc.Editor.callCommand(function () {
             const worksheet = Api.GetActiveSheet();
-            const parameterRange = worksheet.GetRange(Asc.scope.range);
+
+            let parameterRange;
+
+            try {
+                parameterRange = worksheet.GetRange(Asc.scope.range);
+            } catch (error) {
+                parameterRange = null;
+            }
 
             if (!parameterRange)
                 return {
@@ -152,13 +156,13 @@
     }
 
     const getHeader = async function (range) {
+        if (range === undefined)
+            return getHeaderFromSelection();
+
         let header = await getHeaderFromRangeProperty(range);
 
         if (header && header.error)
             throw new window.AgentState.ToolError(header.error);
-
-        if (!header)
-            header = await getHeaderFromSelection();
 
         return header;
     }

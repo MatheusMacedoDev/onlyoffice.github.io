@@ -7274,6 +7274,18 @@ HELPERS.cell.push((function () {
         ]
     });
 
+    const validateRowsParam = function (rows) {
+        if (rows === undefined)
+            return 10;
+
+        if (!Number.isInteger(rows))
+            throw new window.AgentState.ToolError('Parameter "rows" must be a positive integer.');
+
+        if (rows < 1 || rows > 500)
+            throw new window.AgentState.ToolError('Parameter "rows" must be between 1 and 500.');
+
+        return rows;
+    }
 
     const getHeaderFromSelection = async function () {
         return await Asc.Editor.callCommand(function () {
@@ -7304,9 +7316,6 @@ HELPERS.cell.push((function () {
     }
 
     const getHeaderFromRangeProperty = async function (range) {
-        if (range === undefined)
-            return null;
-
         if (typeof range !== "string" || range.trim() === "")
 			throw new window.AgentState.ToolError(
 				'Parameter "range" must be a string compatible with some header like "A1:F1".' +
@@ -7317,7 +7326,14 @@ HELPERS.cell.push((function () {
 
         return await Asc.Editor.callCommand(function () {
             const worksheet = Api.GetActiveSheet();
-            const parameterRange = worksheet.GetRange(Asc.scope.range);
+
+            let parameterRange;
+
+            try {
+                parameterRange = worksheet.GetRange(Asc.scope.range);
+            } catch (error) {
+                parameterRange = null;
+            }
 
             if (!parameterRange)
                 return {
@@ -7344,13 +7360,13 @@ HELPERS.cell.push((function () {
     }
 
     const getHeader = async function (range) {
+        if (range === undefined)
+            return getHeaderFromSelection();
+
         let header = await getHeaderFromRangeProperty(range);
 
         if (header && header.error)
             throw new window.AgentState.ToolError(header.error);
-
-        if (!header)
-            header = await getHeaderFromSelection();
 
         return header;
     }
@@ -7479,14 +7495,7 @@ HELPERS.cell.push((function () {
     }
 
     func.call = async function (params) {
-        const rows = params.rows ?? 10;
-
-        if (!Number.isInteger(rows))
-            throw new window.AgentState.ToolError('Parameter "rows" must be a positive integer.');
-
-        if (rows < 1 || rows > 500)
-            throw new window.AgentState.ToolError('Parameter "rows" must be between 1 and 500.');
-
+        const rows = validateRowsParam(params.rows);
         const header = await getHeader(params.range);
 
         if (!header || header.fields.length === 0)
