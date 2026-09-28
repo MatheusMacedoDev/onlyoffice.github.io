@@ -43,8 +43,10 @@
                     "description": "Cell range with the table header (e.g., 'A1:C1'). If omitted, uses the selected header.",
                 },
                 "rows": {
-                    "type": "number",
-                    "description": "Amount of rows to fill with generated mock data.",
+                    "type": "integer",
+                    "description": "Number of data rows to generate below the header (1-100).",
+                    "minimum": 1,
+                    "maximum": 100,
                     "default": 10,
                 },
             },
@@ -77,8 +79,8 @@
         if (!Number.isInteger(rows))
             throw new window.AgentState.ToolError('Parameter "rows" must be a positive integer.');
 
-        if (rows < 1 || rows > 500)
-            throw new window.AgentState.ToolError('Parameter "rows" must be between 1 and 500.');
+        if (rows < 1 || rows > 100)
+            throw new window.AgentState.ToolError('Parameter "rows" must be between 1 and 100.');
 
         return rows;
     }
