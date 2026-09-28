@@ -85,88 +85,60 @@
         return rows;
     }
 
-    const getHeaderFromSelection = async function () {
-        return await Asc.Editor.callCommand(function () {
-            const worksheet = Api.GetActiveSheet();
-            const selection = worksheet.Selection;
-
-            if (!selection)
-                return null;
-
-            const headerRange = selection.Resize(1, selection.GetColumnsCount());
-
-            const normalizeHeaderRangeFields = function (rawFields) {
-                if (rawFields === null || rawFields === undefined)
-                    return [];
-
-                if(Array.isArray(rawFields) && rawFields.length > 0 && Array.isArray(rawFields[0]))
-                    return rawFields[0];
-
-                return [rawFields];
-            }
-
-            return {
-                address: headerRange.GetAddress(true, true, "xlA1"),
-                fields: normalizeHeaderRangeFields(headerRange.GetValue2())
-            }
-
-        })
-    }
-
-    const getHeaderFromRangeProperty = async function (range) {
-        if (typeof range !== "string" || range.trim() === "")
+    const getHeader = async function (range) {
+        if (range !== undefined && (typeof range !== "string" || range.trim() === ""))
 			throw new window.AgentState.ToolError(
 				'Parameter "range" must be a string compatible with some header like "A1:F1".' +
                 "Got: " + JSON.stringify(range)
 			);
 
-        Asc.scope.range = range.trim();
+        Asc.scope.range = range ? range.trim() : undefined;
 
-        return await Asc.Editor.callCommand(function () {
-            const worksheet = Api.GetActiveSheet();
+        const raw = await Asc.Editor.callCommand(function () {
+            const ws = Api.GetActiveSheet();
+            let source;
 
-            let parameterRange;
-
-            try {
-                parameterRange = worksheet.GetRange(Asc.scope.range);
-            } catch (error) {
-                parameterRange = null;
-            }
-
-            if (!parameterRange)
-                return {
-                    error: 'Range "' + Asc.scope.range + '" is invalid. Use a valid range format like "A1:F1".'
+            if (Asc.scope.range !== undefined) {
+                try {
+                    source = ws.GetRange(Asc.scope.range);
+                } catch (e) {
+                    source = null;
                 }
 
-            const headerRange = parameterRange.Resize(1, parameterRange.GetColumnsCount());
+                if (!source)
+                    return { error: 'Range "' + Asc.scope.range + '" is invalid. Use a valid range format like "A1:F1".' };
+            } else {
+                source = ws.Selection;
 
-            const normalizeHeaderRangeFields = function (rawFields) {
-                if (rawFields === null || rawFields === undefined)
-                    return [];
-
-                if(Array.isArray(rawFields) && rawFields.length > 0 && Array.isArray(rawFields[0]))
-                    return rawFields[0];
-
-                return [rawFields];
+                if (!source)
+                    return null;
             }
+
+            const headerRange = source.Resize(1, source.GetColumnsCount());
 
             return {
                 address: headerRange.GetAddress(true, true, "xlA1"),
-                fields: normalizeHeaderRangeFields(headerRange.GetValue2())
-            }
-        })
-    }
+                value: headerRange.GetValue2()
+            };
+        });
 
-    const getHeader = async function (range) {
-        if (range === undefined)
-            return getHeaderFromSelection();
+        if (raw && raw.error)
+            throw new window.AgentState.ToolError(raw.error);
 
-        let header = await getHeaderFromRangeProperty(range);
+        const normalizeHeaderRangeFields = function (rawFields) {
+            if (rawFields === null || rawFields === undefined)
+                return [];
 
-        if (header && header.error)
-            throw new window.AgentState.ToolError(header.error);
+            if(Array.isArray(rawFields) && rawFields.length > 0 && Array.isArray(rawFields[0]))
+                return rawFields[0];
 
-        return header;
+            return [rawFields];
+        }
+
+        return {
+            address: raw.address,
+            value: normalizeHeaderRangeFields(raw.value),
+        };
     }
 
     const parseMatrixFromAIResponse = function (aiResponse, rowsAmount, columnsAmount) {
@@ -257,8 +229,8 @@
         Asc.scope.rowCount = matrix.length;
 
         return await Asc.Editor.callCommand(function () {
-            const worksheet = Api.GetActiveSheet();
-            const headerRange = worksheet.GetRange(Asc.scope.address);
+            const ws = Api.GetActiveSheet();
+            const headerRange = ws.GetRange(Asc.scope.address);
             const fillRange = headerRange.Resize(Asc.scope.rowCount + 1, Asc.scope.colCount);
 
             for (let rowIndex = 2; rowIndex <= Asc.scope.rowCount + 1; rowIndex++) {
@@ -296,11 +268,11 @@
         const rows = validateRowsParam(params.rows);
         const header = await getHeader(params.range);
 
-        if (!header || header.fields.length === 0)
+        if (!header || header.value.length === 0)
             throw new window.AgentState.ToolError("No header selected or found in the current worksheet.");
 
-        const fields = header.fields
-            .map(field => 
+        const fields = header.value
+            .map(field =>
                 String(field === null || field === undefined ? "" : field).trim()
             );
 
@@ -321,8 +293,8 @@
 
         return {
             status: "ok",
-            headers: header.fields,
-            columns: header.fields.length,
+            headers: header.value,
+            columns: header.value.length,
             generatedRows: rows,
         }
     };
