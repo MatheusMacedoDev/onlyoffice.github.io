@@ -7288,6 +7288,24 @@ HELPERS.cell.push((function () {
         return rows;
     }
 
+    const getColumnName = function (column) {
+        let columnName = "";
+
+        while (column > 0) {
+            columnName = String.fromCharCode((column - 1) % 26 + 65) + columnName;
+            column = Math.floor((column - 1) / 26);
+        }
+
+        return columnName;
+    }
+
+    const getHeaderAddress = function (startRow, startColumn, fieldsCount) {
+        const startCell = "$" + getColumnName(startColumn) + "$" + startRow;
+        const endCell = "$" + getColumnName(startColumn + fieldsCount - 1) + "$" + startRow;
+
+        return  startCell + ":" + endCell;
+    }
+
     const getHeader = async function (range) {
         if (range !== undefined && (typeof range !== "string" || range.trim() === ""))
 			throw new window.AgentState.ToolError(
@@ -7297,7 +7315,7 @@ HELPERS.cell.push((function () {
 
         Asc.scope.range = range ? range.trim() : undefined;
 
-        const header = await Asc.Editor.callCommand(function () {
+        const raw = await Asc.Editor.callCommand(function () {
             const ws = Api.GetActiveSheet();
             let source;
 
@@ -7317,61 +7335,66 @@ HELPERS.cell.push((function () {
                     return null;
             }
 
-            let headerRange = source.Resize(1, source.GetColumnsCount());
-
-            const normalizeHeaderRangeFields = function (rawFields) {
-                if (rawFields === null || rawFields === undefined)
-                    return [];
-
-                if(Array.isArray(rawFields) && rawFields.length > 0 && Array.isArray(rawFields[0]))
-                    return rawFields[0];
-
-                return [rawFields];
-            }
-
-            const getLatestNonEmptyFieldIndex = function (fields) {
-                let latestNonEmptyHeaderIndex = fields.length - 1
-                
-                while (latestNonEmptyHeaderIndex >= 0 && fields[latestNonEmptyHeaderIndex].trim() === "")
-                    latestNonEmptyHeaderIndex--;
-
-                return latestNonEmptyHeaderIndex;
-            }
-
-            const normalizedValue = normalizeHeaderRangeFields(headerRange.GetValue2());
-            
-            const latestNonEmptyHeaderIndex = getLatestNonEmptyFieldIndex(normalizedValue);
-
-            if (latestNonEmptyHeaderIndex < 0)
-                return { error: "The selected header contains only empty fields." };
-
-            const headerFields = normalizedValue.slice(0, latestNonEmptyHeaderIndex + 1);
-
-
-            headerRange = headerRange.Resize(1, latestNonEmptyHeaderIndex + 1);
+            const headerRange = source.Resize(1, source.GetColumnsCount());
 
             return {
-                address: headerRange.GetAddress(true, true, "xlA1"),
-                value: headerFields
+                startRow: headerRange.Row,
+                startColumn: headerRange.Col,
+                value: headerRange.GetValue2(),
             };
         });
 
-        if (!header)
+        if (!raw)
             throw new window.AgentState.ToolError("No header selected or found in the current worksheet.");
 
-        if (header.error)
-            throw new window.AgentState.ToolError(header.error);
+        if (raw.error)
+            throw new window.AgentState.ToolError(raw.error);
+
+
+        const normalizeHeaderRangeFields = function (rawFields) {
+            if (rawFields === null || rawFields === undefined)
+                return [];
+
+            if(Array.isArray(rawFields) && rawFields.length > 0 && Array.isArray(rawFields[0]))
+                return rawFields[0];
+
+            return [rawFields];
+        }
+
+        const normalizedValue = normalizeHeaderRangeFields(raw.value)
+            .map(field =>
+                String(field === null || field === undefined ? "" : field).trim()
+            );
+
+        const getLatestNonEmptyFieldIndex = function (fields) {
+            let latestNonEmptyHeaderIndex = fields.length - 1
+            
+            while (latestNonEmptyHeaderIndex >= 0 && fields[latestNonEmptyHeaderIndex] === "")
+                latestNonEmptyHeaderIndex--;
+
+            return latestNonEmptyHeaderIndex;
+        }
+            
+        const latestNonEmptyHeaderIndex = getLatestNonEmptyFieldIndex(normalizedValue);
+
+        if (latestNonEmptyHeaderIndex < 0)
+            throw new window.AgentState.ToolError("The selected header contains only empty fields.");
+
+        const headerFields = normalizedValue.slice(0, latestNonEmptyHeaderIndex + 1);
 
         const fieldsLimit = 50;
 
-        if (header.value.length > fieldsLimit)
+        if (headerFields.length > fieldsLimit)
             throw new window.AgentState.ToolError(
                 "Provided header has more than "
                 + fieldsLimit
                 + " fields. Please select a smaller header range."
             );
 
-        return header;
+        return {
+            address: getHeaderAddress(raw.startRow, raw.startColumn, headerFields.length),
+            value: headerFields,
+        };
     }
 
     const parseMatrixFromAIResponse = function (aiResponse, rowsAmount, columnsAmount) {
@@ -7501,12 +7524,7 @@ HELPERS.cell.push((function () {
         const rows = validateRowsParam(params.rows);
         const header = await getHeader(params.range);
 
-        const fields = header.value
-            .map(field =>
-                String(field === null || field === undefined ? "" : field).trim()
-            );
-
-        const matrix = await generateMockMatrix(fields, rows);
+        const matrix = await generateMockMatrix(header.value, rows);
 
         if (!matrix)
             throw new window.AgentState.ToolError("AI returned an invalid matrix shape");
