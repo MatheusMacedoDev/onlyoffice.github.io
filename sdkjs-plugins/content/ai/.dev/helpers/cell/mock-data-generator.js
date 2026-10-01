@@ -33,7 +33,7 @@
 (function () {
     let func = new RegisteredFunction({
         "name": "mockDataGenerator",
-		"text": "Generate Mock Data",
+        "text": "Generate Mock Data",
         "description": "Generate mock data for a selected table header with type infer based on the name of each field. If no header is selected, works with header position provided by prompt parameter.",
         "parameters": {
             "type": "object",
@@ -105,10 +105,10 @@
 
     const getHeader = async function (range) {
         if (range !== undefined && (typeof range !== "string" || range.trim() === ""))
-			throw new window.AgentState.ToolError(
-				'Parameter "range" must be a string compatible with some header like "A1:F1".' +
+            throw new window.AgentState.ToolError(
+                'Parameter "range" must be a string compatible with some header like "A1:F1". ' +
                 "Got: " + JSON.stringify(range)
-			);
+            );
 
         Asc.scope.range = range ? range.trim() : undefined;
 
