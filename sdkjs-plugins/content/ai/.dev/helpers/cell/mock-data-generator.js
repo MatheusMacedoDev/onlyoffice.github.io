@@ -333,7 +333,7 @@
         Asc.scope.colCount = (matrix[0] || []).length;
         Asc.scope.rowCount = matrix.length;
 
-        return await Asc.Editor.callCommand(function () {
+        await Asc.Editor.callCommand(function () {
             const ws = Api.GetActiveSheet();
             const headerRange = ws.GetRange(Asc.scope.address);
             const fillRange = headerRange.Resize(Asc.scope.rowCount + 1, Asc.scope.colCount);
@@ -345,8 +345,6 @@
                     row.GetCells(columnIndex).SetValue(Asc.scope.matrix[rowIndex - 2][columnIndex - 1]);
                 }
             }
-
-            return null;
         })
     }
 
@@ -361,10 +359,7 @@
         if (!matrix)
             throw new window.AgentState.ToolError("AI returned an invalid matrix shape.");
 
-        const insertionResult = await insertMatrixBelowHeader(header, matrix);
-
-        if (insertionResult && insertionResult.error)
-            throw new window.AgentState.ToolError(insertionResult.error);
+        await insertMatrixBelowHeader(header, matrix);
 
         return {
             status: "ok",
