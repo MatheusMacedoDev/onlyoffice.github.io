@@ -275,13 +275,12 @@
         return parseMatrixFromAIResponse(aiResult, rows, fields.length);
     }
 
-    const insertMatrixBelowHeader = async function (header, matrix) {
+    const checkTargetAreaIsEmpty = async function (header, rowCount) {
         Asc.scope.address = header.address;
-        Asc.scope.matrix = matrix;
-        Asc.scope.colCount = (matrix[0] || []).length;
-        Asc.scope.rowCount = matrix.length;
+        Asc.scope.colCount = header.value.length;
+        Asc.scope.rowCount = rowCount;
 
-        return await Asc.Editor.callCommand(function () {
+        const response = await Asc.Editor.callCommand(function () {
             const ws = Api.GetActiveSheet();
             const headerRange = ws.GetRange(Asc.scope.address);
             const fillRange = headerRange.Resize(Asc.scope.rowCount + 1, Asc.scope.colCount);
@@ -304,6 +303,24 @@
                 }
 
             }
+        })
+
+        if (response && response.error)
+            throw new window.AgentState.ToolError(response.error);
+    }
+
+    const insertMatrixBelowHeader = async function (header, matrix) {
+        await checkTargetAreaIsEmpty(header, matrix.length);
+
+        Asc.scope.address = header.address;
+        Asc.scope.matrix = matrix;
+        Asc.scope.colCount = (matrix[0] || []).length;
+        Asc.scope.rowCount = matrix.length;
+
+        return await Asc.Editor.callCommand(function () {
+            const ws = Api.GetActiveSheet();
+            const headerRange = ws.GetRange(Asc.scope.address);
+            const fillRange = headerRange.Resize(Asc.scope.rowCount + 1, Asc.scope.colCount);
 
             for (let rowIndex = 2; rowIndex <= Asc.scope.rowCount + 1; rowIndex++) {
                 let row = fillRange.GetRows(rowIndex);
@@ -320,6 +337,8 @@
     func.call = async function (params) {
         const rows = validateRowsParam(params.rows);
         const header = await getHeader(params.range);
+
+        await checkTargetAreaIsEmpty(header, rows);
 
         const matrix = await generateMockMatrix(header.value, rows);
 
