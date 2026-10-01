@@ -7243,7 +7243,7 @@ HELPERS.cell.push((function () {
             "properties": {
                 "range": {
                     "type": "string",
-                    "description": "Cell range with the table header (e.g., 'A1:C1'). If omitted, uses the selected header.",
+                    "description": "Cell range with the table header. Must be a single-row range (e.g., 'A1:C1'). If omitted, uses the selected header."
                 },
                 "rows": {
                     "type": "integer",
