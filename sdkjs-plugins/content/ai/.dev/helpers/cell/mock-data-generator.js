@@ -77,10 +77,19 @@
             return 10;
 
         if (!Number.isInteger(rows))
-            throw new window.AgentState.ToolError('Parameter "rows" must be a positive integer.');
+            throw new window.AgentState.ToolError(
+                'Parameter "rows" must be a positive integer. If you sent a string or '
+                + "float by mistake, fix the value. If the user asked for a non-integer "
+                + "amount, tell them only whole rows are supported and ask for a valid value."
+            );
 
         if (rows < 1 || rows > 100)
-            throw new window.AgentState.ToolError('Parameter "rows" must be between 1 and 100.');
+            throw new window.AgentState.ToolError(
+                'Parameter "rows" must be between 1 and 100. If the prompt implies a '
+                + "value in this range but you sent something else, fix the value. If "
+                + "the user asked for a different amount, do not silently change it: "
+                + "tell them the allowed range is 1-100 and ask which value to use."
+            );
 
         return rows;
     }
@@ -142,7 +151,10 @@
         });
 
         if (!raw)
-            throw new window.AgentState.ToolError("No header selected or found in the current worksheet.");
+            throw new window.AgentState.ToolError(
+                "No header selected or found in the current worksheet. Do not retry; "
+                + "ask the user to select a header range or provide the range they want."
+            );
 
         if (raw.error)
             throw new window.AgentState.ToolError(raw.error);
@@ -165,17 +177,20 @@
 
         const getLatestNonEmptyFieldIndex = function (fields) {
             let latestNonEmptyHeaderIndex = fields.length - 1
-            
+
             while (latestNonEmptyHeaderIndex >= 0 && fields[latestNonEmptyHeaderIndex] === "")
                 latestNonEmptyHeaderIndex--;
 
             return latestNonEmptyHeaderIndex;
         }
-            
+
         const latestNonEmptyHeaderIndex = getLatestNonEmptyFieldIndex(normalizedValue);
 
         if (latestNonEmptyHeaderIndex < 0)
-            throw new window.AgentState.ToolError("The selected header contains only empty fields.");
+            throw new window.AgentState.ToolError(
+                "The selected header contains only empty fields. Do not retry; ask the user "
+                + "to choose a different header range with at least one non-empty field."
+            );
 
         const headerFields = normalizedValue.slice(0, latestNonEmptyHeaderIndex + 1);
 
@@ -183,9 +198,8 @@
 
         if (headerFields.length > fieldsLimit)
             throw new window.AgentState.ToolError(
-                "Provided header has more than "
-                + fieldsLimit
-                + " fields. Please select a smaller header range."
+                "Provided header has more than " + fieldsLimit + " fields. Do not retry; "
+                + "ask the user to choose a header range up to this limit."
             );
 
         return {
@@ -197,7 +211,7 @@
     const parseMatrixFromAIResponse = function (aiResponse, rowsAmount, columnsAmount) {
         if (!aiResponse)
             return null;
-        
+
         const matchedArrays = aiResponse.match(/\[[\s\S]*\]/);
 
         try {
@@ -263,8 +277,8 @@
             aiResult = await requestEngine.chatRequest(argPrompt, false);
         } catch (error) {
             throw new window.AgentState.ToolError(
-                'AI request failed while generating mocked matrix. ' +
-                'Error message: ' + (error?.message || 'Unknown')
+                "AI request failed while generating mocked matrix. " +
+                "Error message: " + (error?.message || "Unknown") + "."
             );
         }
         finally {
@@ -298,7 +312,9 @@
 
                     if (!isCellValueEmpty || !isCellFormulaEmpty)
                         return {
-                            error: `Cannot fill data below the header at ${Asc.scope.address}. The target area is not empty.`
+                            error: "Cannot fill data below the header at " + Asc.scope.address
+                                + ": the target area is not empty. Do not retry; ask the "
+                                + "user to clear the area or choose a different header."
                         }
                 }
 
@@ -343,7 +359,7 @@
         const matrix = await generateMockMatrix(header.value, rows);
 
         if (!matrix)
-            throw new window.AgentState.ToolError("AI returned an invalid matrix shape");
+            throw new window.AgentState.ToolError("AI returned an invalid matrix shape.");
 
         const insertionResult = await insertMatrixBelowHeader(header, matrix);
 
