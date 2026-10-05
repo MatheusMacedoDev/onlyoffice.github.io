@@ -326,17 +326,33 @@
     }
 
     const insertMatrixBelowHeader = async function (header, matrix) {
-        await checkTargetAreaIsEmpty(header, matrix.length);
-
         Asc.scope.address = header.address;
         Asc.scope.matrix = matrix;
         Asc.scope.colCount = (matrix[0] || []).length;
         Asc.scope.rowCount = matrix.length;
 
-        await Asc.Editor.callCommand(function () {
+        return await Asc.Editor.callCommand(function () {
             const ws = Api.GetActiveSheet();
             const headerRange = ws.GetRange(Asc.scope.address);
             const fillRange = headerRange.Resize(Asc.scope.rowCount + 1, Asc.scope.colCount);
+
+            for (let rowIndex = 2; rowIndex <= Asc.scope.rowCount + 1; rowIndex++) {
+                const row = fillRange.GetRows(rowIndex);
+
+                for (let columnIndex = 1; columnIndex <= Asc.scope.colCount; columnIndex++) {
+                    const cell = row.GetCells(columnIndex);
+                    const cellValue = cell.GetValue();
+                    const cellFormula = cell.GetFormula();
+
+                    const isCellValueEmpty = (cellValue === null || cellValue === undefined || cellValue === "");
+                    const isCellFormulaEmpty = (cellFormula === null || cellFormula === undefined || cellFormula === "");
+
+                    if (!isCellValueEmpty || !isCellFormulaEmpty)
+                        return {
+                            error: `Cannot fill data below the header at ${Asc.scope.address}. The target area is not empty.`
+                        }
+                }
+            }
 
             for (let rowIndex = 2; rowIndex <= Asc.scope.rowCount + 1; rowIndex++) {
                 let row = fillRange.GetRows(rowIndex);
@@ -359,7 +375,10 @@
         if (!matrix)
             throw new window.AgentState.ToolError("AI returned an invalid matrix shape.");
 
-        await insertMatrixBelowHeader(header, matrix);
+        const insertionResult = await insertMatrixBelowHeader(header, matrix);
+
+        if (insertionResult && insertionResult.error)
+            throw new window.AgentState.ToolError(insertionResult.error);
 
         return {
             status: "ok",
