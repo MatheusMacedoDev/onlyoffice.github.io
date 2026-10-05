@@ -147,6 +147,7 @@
                 startRow: headerRange.Row,
                 startColumn: headerRange.Col,
                 value: headerRange.GetValue2(),
+                sheetName: ws.Name,
             };
         });
 
@@ -205,6 +206,7 @@
         return {
             address: getHeaderAddress(raw.startRow, raw.startColumn, headerFields.length),
             value: headerFields,
+            sheetName: raw.sheetName,
         };
     }
 
@@ -293,9 +295,18 @@
         Asc.scope.address = header.address;
         Asc.scope.colCount = header.value.length;
         Asc.scope.rowCount = rowCount;
+        Asc.scope.sheetName = header.sheetName;
 
         const response = await Asc.Editor.callCommand(function () {
-            const ws = Api.GetActiveSheet();
+            const ws = Api.GetSheet(Asc.scope.sheetName);
+
+            if (!ws)
+                return {
+                    error: 'The worksheet "' + Asc.scope.sheetName + '" where the header was '
+                        + "selected is no longer available. Do not retry; ask the user to "
+                        + "select the header and try again."
+                };
+
             const headerRange = ws.GetRange(Asc.scope.address);
             const fillRange = headerRange.Resize(Asc.scope.rowCount + 1, Asc.scope.colCount);
 
@@ -327,12 +338,21 @@
 
     const insertMatrixBelowHeader = async function (header, matrix) {
         Asc.scope.address = header.address;
+        Asc.scope.sheetName = header.sheetName;
         Asc.scope.matrix = matrix;
         Asc.scope.colCount = (matrix[0] || []).length;
         Asc.scope.rowCount = matrix.length;
 
         return await Asc.Editor.callCommand(function () {
-            const ws = Api.GetActiveSheet();
+            const ws = Api.GetSheet(Asc.scope.sheetName);
+
+            if (!ws)
+                return {
+                    error: 'The worksheet "' + Asc.scope.sheetName + '" where the header was '
+                        + "selected is no longer available. Do not retry; ask the user to "
+                        + "select the header and try again."
+                };
+
             const headerRange = ws.GetRange(Asc.scope.address);
             const fillRange = headerRange.Resize(Asc.scope.rowCount + 1, Asc.scope.colCount);
 
