@@ -254,39 +254,75 @@
         if (!requestEngine)
             throw new window.AgentState.ToolError("AI Request engine is not available.");
 
-        let isSendedEndLongAction = false;
+        const actionName = "AI (" + requestEngine.modelUI.name + ")";
 
-        async function checkEndAction() {
-            if (!isSendedEndLongAction) {
-                await Asc.Editor.callMethod("EndAction", [
-                    "Block",
-                    `AI (${requestEngine.modelUI.name})`
-                ]);
+        let aiResult;
+        let primaryError = null;
+        let cleanupErrors = [];
+        let isBlockActionStarted = false;
+        let isGroupActionsStarted = false;
 
-                isSendedEndLongAction = true;
+        function createToolError(message, originalError) {
+            return new window.AgentState.ToolError(
+                message + " Error message: " + (originalError?.message || "Unknown") + "."
+            );
+        }
+
+        try {
+            try {
+                await Asc.Editor.callMethod("StartAction", ["Block", actionName]);
+                isBlockActionStarted = true;
+
+                await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+                isGroupActionsStarted = true;
+            } catch (error) {
+                throw createToolError(
+                    "Failed to start the editor action while generating mock data.", 
+                    error
+                );
+            }
+
+            try {
+                aiResult = await requestEngine.chatRequest(argPrompt, false);
+            } catch (error) {
+                throw createToolError(
+                    "AI request failed while generating mocked matrix. ",
+                    error
+                );
+            }
+        } catch (error) {
+            primaryError = error;
+        } finally {
+            if (isBlockActionStarted) {
+                try {
+                    await Asc.Editor.callMethod("EndAction", ["Block", actionName]);
+                } catch (error) {
+                    cleanupErrors.push(createToolError(
+                    "Failed to close the editor action block after generating mock data. ",
+                        error
+                    ));
+                }
+            }
+
+            if (isGroupActionsStarted) {
+                try {
+                    await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+                } catch (error) {
+                    cleanupErrors.push(createToolError(
+                        "Failed to close the editor action group after generating mock data. ",
+                        error
+                    ));
+                }
             }
         }
 
-        await Asc.Editor.callMethod("StartAction", [
-            "Block",
-            `AI (${requestEngine.modelUI.name})`
-        ])
-        await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+        if (primaryError)
+            throw primaryError;
 
-        let aiResult;
-
-        try {
-            aiResult = await requestEngine.chatRequest(argPrompt, false);
-        } catch (error) {
+        if (cleanupErrors.length > 0)
             throw new window.AgentState.ToolError(
-                "AI request failed while generating mocked matrix. " +
-                "Error message: " + (error?.message || "Unknown") + "."
+                cleanupErrors.map(error => error.message).join("\n")
             );
-        }
-        finally {
-            await checkEndAction();
-            await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
-        }
 
         return parseMatrixFromAIResponse(aiResult, rows, fields.length);
     }

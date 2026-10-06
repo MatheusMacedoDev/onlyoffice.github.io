@@ -7350,6 +7350,7 @@ HELPERS.cell.push((function () {
                 startRow: headerRange.Row,
                 startColumn: headerRange.Col,
                 value: headerRange.GetValue2(),
+                sheetName: ws.Name,
             };
         });
 
@@ -7408,6 +7409,7 @@ HELPERS.cell.push((function () {
         return {
             address: getHeaderAddress(raw.startRow, raw.startColumn, headerFields.length),
             value: headerFields,
+            sheetName: raw.sheetName,
         };
     }
 
@@ -7455,39 +7457,75 @@ HELPERS.cell.push((function () {
         if (!requestEngine)
             throw new window.AgentState.ToolError("AI Request engine is not available.");
 
-        let isSendedEndLongAction = false;
+        const actionName = "AI (" + requestEngine.modelUI.name + ")";
 
-        async function checkEndAction() {
-            if (!isSendedEndLongAction) {
-                await Asc.Editor.callMethod("EndAction", [
-                    "Block",
-                    `AI (${requestEngine.modelUI.name})`
-                ]);
+        let aiResult;
+        let primaryError = null;
+        let cleanupErrors = [];
+        let isBlockActionStarted = false;
+        let isGroupActionsStarted = false;
 
-                isSendedEndLongAction = true;
+        function createToolError(message, originalError) {
+            return new window.AgentState.ToolError(
+                message + " Error message: " + (originalError?.message || "Unknown") + "."
+            );
+        }
+
+        try {
+            try {
+                await Asc.Editor.callMethod("StartAction", ["Block", actionName]);
+                isBlockActionStarted = true;
+
+                await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+                isGroupActionsStarted = true;
+            } catch (error) {
+                throw createToolError(
+                    "Failed to start the editor action while generating mock data.", 
+                    error
+                );
+            }
+
+            try {
+                aiResult = await requestEngine.chatRequest(argPrompt, false);
+            } catch (error) {
+                throw createToolError(
+                    "AI request failed while generating mocked matrix. ",
+                    error
+                );
+            }
+        } catch (error) {
+            primaryError = error;
+        } finally {
+            if (isBlockActionStarted) {
+                try {
+                    await Asc.Editor.callMethod("EndAction", ["Block", actionName]);
+                } catch (error) {
+                    cleanupErrors.push(createToolError(
+                    "Failed to close the editor action block after generating mock data. ",
+                        error
+                    ));
+                }
+            }
+
+            if (isGroupActionsStarted) {
+                try {
+                    await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+                } catch (error) {
+                    cleanupErrors.push(createToolError(
+                        "Failed to close the editor action group after generating mock data. ",
+                        error
+                    ));
+                }
             }
         }
 
-        await Asc.Editor.callMethod("StartAction", [
-            "Block",
-            `AI (${requestEngine.modelUI.name})`
-        ])
-        await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+        if (primaryError)
+            throw primaryError;
 
-        let aiResult;
-
-        try {
-            aiResult = await requestEngine.chatRequest(argPrompt, false);
-        } catch (error) {
+        if (cleanupErrors.length > 0)
             throw new window.AgentState.ToolError(
-                "AI request failed while generating mocked matrix. " +
-                "Error message: " + (error?.message || "Unknown") + "."
+                cleanupErrors.map(error => error.message).join("\n")
             );
-        }
-        finally {
-            await checkEndAction();
-            await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
-        }
 
         return parseMatrixFromAIResponse(aiResult, rows, fields.length);
     }
@@ -7496,9 +7534,18 @@ HELPERS.cell.push((function () {
         Asc.scope.address = header.address;
         Asc.scope.colCount = header.value.length;
         Asc.scope.rowCount = rowCount;
+        Asc.scope.sheetName = header.sheetName;
 
         const response = await Asc.Editor.callCommand(function () {
-            const ws = Api.GetActiveSheet();
+            const ws = Api.GetSheet(Asc.scope.sheetName);
+
+            if (!ws)
+                return {
+                    error: 'The worksheet "' + Asc.scope.sheetName + '" where the header was '
+                        + "selected is no longer available. Do not retry; ask the user to "
+                        + "select the header and try again."
+                };
+
             const headerRange = ws.GetRange(Asc.scope.address);
             const fillRange = headerRange.Resize(Asc.scope.rowCount + 1, Asc.scope.colCount);
 
@@ -7529,17 +7576,42 @@ HELPERS.cell.push((function () {
     }
 
     const insertMatrixBelowHeader = async function (header, matrix) {
-        await checkTargetAreaIsEmpty(header, matrix.length);
-
         Asc.scope.address = header.address;
+        Asc.scope.sheetName = header.sheetName;
         Asc.scope.matrix = matrix;
         Asc.scope.colCount = (matrix[0] || []).length;
         Asc.scope.rowCount = matrix.length;
 
-        await Asc.Editor.callCommand(function () {
-            const ws = Api.GetActiveSheet();
+        return await Asc.Editor.callCommand(function () {
+            const ws = Api.GetSheet(Asc.scope.sheetName);
+
+            if (!ws)
+                return {
+                    error: 'The worksheet "' + Asc.scope.sheetName + '" where the header was '
+                        + "selected is no longer available. Do not retry; ask the user to "
+                        + "select the header and try again."
+                };
+
             const headerRange = ws.GetRange(Asc.scope.address);
             const fillRange = headerRange.Resize(Asc.scope.rowCount + 1, Asc.scope.colCount);
+
+            for (let rowIndex = 2; rowIndex <= Asc.scope.rowCount + 1; rowIndex++) {
+                const row = fillRange.GetRows(rowIndex);
+
+                for (let columnIndex = 1; columnIndex <= Asc.scope.colCount; columnIndex++) {
+                    const cell = row.GetCells(columnIndex);
+                    const cellValue = cell.GetValue();
+                    const cellFormula = cell.GetFormula();
+
+                    const isCellValueEmpty = (cellValue === null || cellValue === undefined || cellValue === "");
+                    const isCellFormulaEmpty = (cellFormula === null || cellFormula === undefined || cellFormula === "");
+
+                    if (!isCellValueEmpty || !isCellFormulaEmpty)
+                        return {
+                            error: `Cannot fill data below the header at ${Asc.scope.address}. The target area is not empty.`
+                        }
+                }
+            }
 
             for (let rowIndex = 2; rowIndex <= Asc.scope.rowCount + 1; rowIndex++) {
                 let row = fillRange.GetRows(rowIndex);
@@ -7562,7 +7634,10 @@ HELPERS.cell.push((function () {
         if (!matrix)
             throw new window.AgentState.ToolError("AI returned an invalid matrix shape.");
 
-        await insertMatrixBelowHeader(header, matrix);
+        const insertionResult = await insertMatrixBelowHeader(header, matrix);
+
+        if (insertionResult && insertionResult.error)
+            throw new window.AgentState.ToolError(insertionResult.error);
 
         return {
             status: "ok",
