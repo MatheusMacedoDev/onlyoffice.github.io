@@ -80,7 +80,35 @@
         ]
     });
 
+    const validateWordLimitParam = function (wordLimit) {
+        const wordDefaultLimit = 2050
+        const wordMinLimit = 100
+        const wordMaxLimit = 500
+
+        if (wordLimit === undefined)
+            return wordDefaultLimit;
+
+        if (!Number.isInteger(rows))
+            throw new window.AgentState.ToolError(
+                'Parameter "wordLimit" must be a positive integer. If you sent a string or '
+                + "float by mistake, fix the value. If the user asked for a non-integer "
+                + "amount, tell them only whole rows are supported and ask for a valid value."
+            );
+
+        if (wordLimit < wordMinLimit || wordLimit > wordMaxLimit)
+            throw new window.AgentState.ToolError(
+                `Parameter "wordLimit" must be between ${wordMinLimit} and ${wordMaxLimit}. If the prompt implies a `
+                + "value in this range but you sent something else, fix the value. If "
+                + "the user asked for a different amount, do not silently change it: "
+                + `tell them the allowed range is ${wordMinLimit}-${wordMaxLimit} and ask which value to use.`
+            );
+
+        return wordLimit;
+    }
+
     func.call = async function (params) {
+        const wordLimit = validateWordLimitParam(params.wordLimit);
+
         return {
             status: "ok",
         }
