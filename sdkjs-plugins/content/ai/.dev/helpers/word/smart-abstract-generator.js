@@ -62,7 +62,7 @@
                 "arguments": {},
             },
             {
-                "prompt": "Create an summary.",
+                "prompt": "Create a summary.",
                 "arguments": {},
             },
             {
@@ -70,7 +70,7 @@
                 "arguments": { "wordLimit": 250 },
             },
             {
-                "prompt": "Make an English summary with a 300 words limit.",
+                "prompt": "Make an English summary with a 300-word limit.",
                 "arguments": { "mainLanguage": "English", "wordLimit": 300 },
             },
             {
@@ -81,18 +81,18 @@
     });
 
     const validateWordLimitParam = function (wordLimit) {
-        const wordDefaultLimit = 2050
-        const wordMinLimit = 100
-        const wordMaxLimit = 500
+        const wordDefaultLimit = 250;
+        const wordMinLimit = 100;
+        const wordMaxLimit = 500;
 
         if (wordLimit === undefined)
             return wordDefaultLimit;
 
-        if (!Number.isInteger(rows))
+        if (!Number.isInteger(wordLimit))
             throw new window.AgentState.ToolError(
-                'Parameter "wordLimit" must be a positive integer. If you sent a string or '
+                'Parameter "wordLimit" must be an integer. If you sent a string or '
                 + "float by mistake, fix the value. If the user asked for a non-integer "
-                + "amount, tell them only whole rows are supported and ask for a valid value."
+                + "amount, tell them only whole words are supported and ask for a valid value."
             );
 
         if (wordLimit < wordMinLimit || wordLimit > wordMaxLimit)
@@ -104,10 +104,33 @@
             );
 
         return wordLimit;
+    };
+
+    async function getTargetText() {
+        const targetText = await Asc.Editor.callCommand(function(){
+            const document = Api.GetDocument();
+            const selection = document.GetRangeBySelect();
+            let text = selection ? selection.GetText() : "";
+
+            if (!text)
+            {
+                text = document.GetText();
+            }
+
+            return text;
+        });
+
+        if (!targetText || targetText.trim().length === 0)
+            throw new window.AgentState.ToolError(
+                "The document is empty. Please provide some text to generate an abstract."
+            );
+
+        return targetText;
     }
 
     func.call = async function (params) {
         const wordLimit = validateWordLimitParam(params.wordLimit);
+        const targetText = await getTargetText();
 
         return {
             status: "ok",
