@@ -52,6 +52,13 @@
                     "minimum": 100,
                     "maximum": 500,
                     "default": 250,
+                },
+                "abstractPage": {
+                    "type": "integer",
+                    "description": "1-based page number where the abstract should be inserted (page 1 is the first page). If omitted, inserts it at the beginning of the document.",
+                    "minimum": 1,
+                    "maximum": 10000,
+                    "default": 1,
                 }
             },
             "required": [],
@@ -76,6 +83,10 @@
             {
                 "prompt": "Generate an abstract in Portuguese and English.",
                 "arguments": { "mainLanguage": "Portuguese", "foreignLanguage": "English" },
+            },
+            {
+                "prompt": "Generate an abstract and insert it on page 2.",
+                "arguments": { "abstractPage": 2 },
             },
         ]
     });
@@ -104,6 +115,30 @@
             );
 
         return wordLimit;
+    };
+
+    const validateAbstractPageParam = function (page) {
+        const defaultPage = 1;
+        const minPage = 1;
+        const maxPage = 10000;
+
+        if (page === undefined)
+            return defaultPage;
+
+        if (!Number.isInteger(page))
+            throw new window.AgentState.ToolError(
+                'Parameter "abstractPage" must be a whole page number, such as 1 or 2.'
+            );
+
+        if (page < minPage || page > maxPage)
+            throw new window.AgentState.ToolError(
+                `Parameter "abstractPage" must be between ${minPage} and ${maxPage}. If the prompt implies a `
+                + "value in this range but you sent something else, fix the value. If "
+                + "the user asked for a different amount, do not silently change it: "
+                + `tell them the allowed range is ${minPage}-${maxPage} and ask which value to use.`
+            );
+
+        return page;
     };
 
     async function getTargetText() {
@@ -235,10 +270,42 @@
         return aiResult;
     }
 
+    const insertAbstract = async function (abstractText, pageNumber) {
+        if (typeof abstractText !== "string" || !abstractText.trim())
+            throw new window.AgentState.ToolError("AI returned an empty abstract.");
+
+        Asc.scope.pageIndex = pageNumber - 1;
+        Asc.scope.abstractText = abstractText;
+
+        const response = await Asc.Editor.callCommand(function () {
+            const document = Api.GetDocument();
+            const pageIndex = Asc.scope.pageIndex;
+
+            if (pageIndex >= document.GetPageCount())
+                return { error: "The specified page number exceeds the total number of pages in the document." };
+
+            if (!document.GoToPage(pageIndex))
+                return { error: "Could not move the cursor to the specified page." };
+
+            document.CreateNewHistoryPoint();
+
+            const paragraph = document.CreateParagraph();
+            paragraph.SetText(Asc.scope.abstractText);
+            paragraph.AddPageBreak();
+
+            if(!document.InsertContent([paragraph]))
+                return { error: "Failed to insert the abstract into the document." };
+        });
+
+        if (response && response.error)
+            throw new window.AgentState.ToolError(response.error);
+    }
+
     func.call = async function (params) {
         const mainLanguage = params.mainLanguage;
         const foreignLanguage = params.foreignLanguage;
         const wordLimit = validateWordLimitParam(params.wordLimit);
+        const abstractPage = validateAbstractPageParam(params.abstractPage);
 
         const targetText = await getTargetText();
 
@@ -248,6 +315,8 @@
             foreignLanguage,
             wordLimit
         );
+
+        await insertAbstract(generatedAbstract, abstractPage);
 
         return {
             status: "ok",
