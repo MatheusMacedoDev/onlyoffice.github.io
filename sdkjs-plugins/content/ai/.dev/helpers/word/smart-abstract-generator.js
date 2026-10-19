@@ -40,11 +40,11 @@
             "properties": {
                 "mainLanguage": {
                     "type": "string",
-                    "description": "Language chosen for the abstract generation. If not specified, the default language will be the same as the selected text or document.",
+                    "description": "Optional BCP 47 language tag for the abstract, such as \"en-US\". If omitted, use the language of the selected text or document.",
                 },
                 "foreignLanguage": {
                     "type": "string",
-                    "description": "Language chosen for the foreign language abstract generation. If not specified, no foreign language abstract will be generated.",
+                    "description": "Optional BCP 47 language tag for a second abstract, such as \"pt-BR\". If omitted, no second abstract will be generated.",
                 },
                 "wordLimit": {
                     "type": "integer",
@@ -78,11 +78,11 @@
             },
             {
                 "prompt": "Make an English summary with a 300-word limit.",
-                "arguments": { "mainLanguage": "English", "wordLimit": 300 },
+                "arguments": { "mainLanguage": "en-US", "wordLimit": 300 },
             },
             {
                 "prompt": "Generate an abstract in Portuguese and English.",
-                "arguments": { "mainLanguage": "Portuguese", "foreignLanguage": "English" },
+                "arguments": { "mainLanguage": "pt-BR", "foreignLanguage": "en-US" },
             },
             {
                 "prompt": "Generate an abstract and insert it on page 2.",
@@ -90,6 +90,24 @@
             },
         ]
     });
+
+    const validateLanguageParam = function (language, paramName) {
+        if (language === undefined)
+            return undefined;
+
+        if (typeof language !== "string" || !language.trim())
+            throw new window.AgentState.ToolError(
+                `Parameter "${paramName}" must be a BCP 47 language tag, such as "en-US" or "pt-BR".`
+            );
+
+        try {
+            return Intl.getCanonicalLocales(language.trim())[0];
+        } catch (error) {
+            throw new window.AgentState.ToolError(
+                `Parameter "${paramName}" must be a valid BCP 47 language tag, such as "en-US" or "pt-BR".`
+            );
+        }
+    };
 
     const validateWordLimitParam = function (wordLimit) {
         const wordDefaultLimit = 250;
@@ -143,6 +161,8 @@
 
     async function getTargetText() {
         const targetText = await Asc.Editor.callCommand(function(){
+            debugger;
+
             const document = Api.GetDocument();
             const selection = document.GetRangeBySelect();
             let text = selection ? selection.GetText() : "";
@@ -278,6 +298,8 @@
         Asc.scope.abstractText = abstractText;
 
         const response = await Asc.Editor.callCommand(function () {
+            debugger;
+
             const document = Api.GetDocument();
             const pageIndex = Asc.scope.pageIndex;
 
@@ -302,8 +324,8 @@
     }
 
     func.call = async function (params) {
-        const mainLanguage = params.mainLanguage;
-        const foreignLanguage = params.foreignLanguage;
+        const mainLanguage = validateLanguageParam(params.mainLanguage, "mainLanguage");
+        const foreignLanguage = validateLanguageParam(params.foreignLanguage, "foreignLanguage");
         const wordLimit = validateWordLimitParam(params.wordLimit);
         const abstractPage = validateAbstractPageParam(params.abstractPage);
 
