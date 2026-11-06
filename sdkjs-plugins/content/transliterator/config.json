@@ -1,38 +1,20 @@
 {
-    "name"       : "hello world",
+    "name"       : "Transliterator",
     "guid"       : "asc.{aaffc8aa-8e37-4fc6-aebf-6d2704788148}",
     "baseUrl"    : "",
     "variations" : [
         {
-            "description"         : "hello world",
+            "description"         : "transliterator",
             "url"                 : "index.html",
             "icons"               : ["resources/img/icon.png", "resources/img/icon@2x.png"],
             "isViewer"            : false,
-            "EditorsSupport"      : ["word"],
-            "isVisual"            : false,
-            "initDataType"        : "none",
-            "initData"            : "",
-            "buttons"             : []
-        },
-        {
-            "description"         : "About",
-            "url"                 : "index_about.html",
-            "icons"               : ["resources/img/icon.png", "resources/img/icon@2x.png"],
-            "isViewer"            : false,
-            "EditorsSupport"      : ["word"],
+            "EditorsSupport"      : ["word", "cell", "slide"],
+            "type": "panel",
             "isVisual"            : true,
-            "isModal"             : true,
-            "isInsideMode"        : false,
-            "initDataType"        : "none",
+            "initDataType"        : "text",
             "initData"            : "",
-            "buttons"         : [
-                {
-                    "text": "Ok",
-                    "primary": true
-                }
-            ],
-
-            "size" : [392, 147]
+            "initOnSelectionChanged": true,
+            "buttons"             : []
         }
     ]
 }
