@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Transliterator Tests</title>
+    <script type="text/javascript" src="scripts/translit.js"></script>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f5f7fb;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --pass: #1f7a3d;
+            --pass-bg: #e9f8ef;
+            --fail: #b42318;
+            --fail-bg: #fff0ee;
+            --border: #d0d7e2;
+        }
+
+        body {
+            margin: 0;
+            padding: 24px;
+            background: linear-gradient(180deg, #eef3ff 0%, var(--bg) 100%);
+            color: var(--text);
+            font: 14px/1.5 "Segoe UI", Arial, sans-serif;
+        }
+
+        main {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+        }
+
+        p {
+            margin: 0 0 16px;
+            color: var(--muted);
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+            padding: 20px;
+        }
+
+        .summary {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .summary-item {
+            min-width: 120px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #f8fafc;
+        }
+
+        .summary-item strong {
+            display: block;
+            font-size: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 10px 12px;
+            border-top: 1px solid var(--border);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            color: var(--muted);
+            font-weight: 600;
+            border-top: none;
+        }
+
+        .status {
+            display: inline-block;
+            min-width: 52px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .status-pass {
+            color: var(--pass);
+            background: var(--pass-bg);
+        }
+
+        .status-fail {
+            color: var(--fail);
+            background: var(--fail-bg);
+        }
+
+        code {
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Transliterator Unit Tests</h1>
+        <p>Edit the <code>TEST_CASES</code> array in this file to add more cases. Reload the page to rerun them.</p>
+
+        <section class="panel">
+            <div class="summary" id="summary"></div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Name</th>
+                        <th>Input</th>
+                        <th>Expected</th>
+                        <th>Actual</th>
+                    </tr>
+                </thead>
+                <tbody id="results"></tbody>
+            </table>
+        </section>
+    </main>
+
+    <script type="text/javascript">
+    (function() {
+        "use strict";
+
+        var TEST_CASES = [
+            {
+                name: "ICAO preserves title case",
+                table: "icao",
+                direction: "forward",
+                input: "Жук",
+                expected: "Zhuk"
+            },
+            {
+                name: "ICAO preserves uppercase word",
+                table: "icao",
+                direction: "forward",
+                input: "ЖУК",
+                expected: "ZHUK"
+            },
+            {
+                name: "ICAO preserves lowercase word",
+                table: "icao",
+                direction: "forward",
+                input: "жук",
+                expected: "zhuk"
+            },
+            {
+                name: "ICAO capitalizes only first Latin letter before lowercase",
+                table: "icao",
+                direction: "forward",
+                input: "Щука",
+                expected: "Shchuka"
+            },
+            {
+                name: "ICAO capitalizes all Latin letters when source letter stands alone",
+                table: "icao",
+                direction: "forward",
+                input: "Щ",
+                expected: "SHCH"
+            },
+            {
+                name: "GOST reverse longest match",
+                table: "gost779b",
+                direction: "reverse",
+                input: "Shhukin",
+                expected: "Щукин"
+            },
+            {
+                name: "ICAO long sentence",
+                table: "icao",
+                direction: "forward",
+                input: "Москва, ул. Щербакова 7",
+                expected: "Moskva, ul. Shcherbakova 7"
+            }
+        ];
+
+        function runTest(testCase) {
+            var actual;
+
+            if (typeof testCase.run === "function") {
+                actual = testCase.run();
+            } else {
+                actual = window.Transliterator.transliterate(
+                    testCase.input,
+                    testCase.table,
+                    testCase.direction
+                );
+            }
+
+            return {
+                name: testCase.name,
+                input: testCase.input || "-",
+                expected: testCase.expected,
+                actual: actual,
+                passed: actual === testCase.expected
+            };
+        }
+
+        function renderSummary(results) {
+            var summary = document.getElementById("summary");
+            var passed = results.filter(function(result) {
+                return result.passed;
+            }).length;
+            var failed = results.length - passed;
+
+            summary.innerHTML = [
+                ["Total", results.length],
+                ["Passed", passed],
+                ["Failed", failed]
+            ].map(function(item) {
+                return "<div class=\"summary-item\"><span>" + item[0] + "</span><strong>" + item[1] + "</strong></div>";
+            }).join("");
+        }
+
+        function renderResults(results) {
+            var tbody = document.getElementById("results");
+
+            tbody.innerHTML = results.map(function(result) {
+                var statusClass = result.passed ? "status-pass" : "status-fail";
+                var statusText = result.passed ? "PASS" : "FAIL";
+
+                return [
+                    "<tr>",
+                    "<td><span class=\"status ", statusClass, "\">", statusText, "</span></td>",
+                    "<td>", result.name, "</td>",
+                    "<td><code>", String(result.input), "</code></td>",
+                    "<td><code>", String(result.expected), "</code></td>",
+                    "<td><code>", String(result.actual), "</code></td>",
+                    "</tr>"
+                ].join("");
+            }).join("");
+        }
+
+        window.Transliterator.load().then(function() {
+            var results = TEST_CASES.map(runTest);
+            renderSummary(results);
+            renderResults(results);
+        }).catch(function(error) {
+            document.getElementById("summary").innerHTML = "<div class=\"summary-item\"><span>Error</span><strong>Load failed</strong></div>";
+            document.getElementById("results").innerHTML = "<tr><td colspan=\"5\"><code>" + String(error) + "</code></td></tr>";
+        });
+    })();
+    </script>
+</body>
+</html>
