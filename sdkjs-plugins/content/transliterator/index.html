@@ -13,46 +13,53 @@
  See the License for the specific language governing permissions and
  limitations under the License.
  -->
-<!DOCTYPE html>
+
+<!doctype html>
 <html>
-<head>
+  <head>
     <meta charset="UTF-8" />
     <title>Hello world</title>
-    <script type="text/javascript" src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.js"></script>
-    <script type="text/javascript" src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins-ui.js"></script>
-    <link rel="stylesheet" href="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.css">
-    <link rel="stylesheet" href="resources/css/plugin_style.css">
-    <script type="text/javascript" src="scripts/selection.js"></script>
-</head>
-<body>
+    <script
+      type="text/javascript"
+      src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.js"
+    ></script>
+    <script
+      type="text/javascript"
+      src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins-ui.js"
+    ></script>
+    <link
+      rel="stylesheet"
+      href="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.css"
+    />
+    <link rel="stylesheet" href="resources/css/plugin_style.css" />
+    <script type="text/javascript" src="scripts/translit.js"></script>
+    <script type="text/javascript" src="scripts/plugin.js"></script>
+  </head>
+  <body>
     <div>
-        <label for="direction">Direction</label>
-        <select id="direction">
-            <option value="cyrillic-to-latin">Cyrillic → Latin</option>
-            <option value="latin-to-cyrillic">Latin → Cyrillic</option>
-            <option value="greek-to-latin">Greek → Latin</option>
-        </select>
+      <label for="direction">Direction</label>
+      <select id="direction">
+        <option value="cyrillic-to-latin">Cyrillic → Latin</option>
+        <option value="latin-to-cyrillic">Latin → Cyrillic</option>
+        <option value="greek-to-latin">Greek → Latin</option>
+      </select>
     </div>
 
     <div>
-        <label for="standard">Standard</label>
-        <select id="standard">
-            <option value="passport-icao-9303">Passport (ICAO 9303)</option>
-            <option value="gost-7.79-system-b">GOST 7.79 System B"</option>
-            <option value="iso-9">ISO 9"</option>
-        </select>
+      <label for="standard">Standard</label>
+      <select id="standard"></select>
     </div>
 
     <p id="example">Example: Щукин → Shchukin</p>
 
     <div class="preview-container">
-        <label for="preview">Preview</label>
-        <textarea
-            id="preview"
-            placeholder="Select text to transliterate..."
-            rows="10"
-            readonly
-        ></textarea>
+      <label for="preview">Preview</label>
+      <textarea
+        id="preview"
+        placeholder="Select text to transliterate..."
+        rows="10"
+        readonly
+      ></textarea>
     </div>
-</body>
+  </body>
 </html>
