@@ -67,3 +67,21 @@ body {
     border-bottom: none;
     margin: 16px 0;
 }
+
+.btn-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.btn-addition {
+    padding-left: 5px;
+    padding-right: 5px;
+    flex: 1;
+}
+
+#replace-status {
+    text-align: center;
+}
