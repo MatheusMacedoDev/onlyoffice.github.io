@@ -16,11 +16,29 @@
  *
  */
 
+let sourceText = "";
+let transliteratedLines = [];
+let busyReplacing = false;
+let isEventListenersAttached = false;
+
 async function getWordAndSlideSourceText() {
     return new Promise((resolve) => {
-        window.Asc.plugin.executeMethod("GetSelectedText", [], function (text) {
-            resolve(text ? text : "");
-        });
+        window.Asc.plugin.executeMethod(
+            "GetSelectedText",
+            [
+                {
+                    Numbering: false,
+                    Math: false,
+                    ParaSeparator: "\n",
+                    TableCellSeparator: "\n",
+                    TableRowSeparator: "\n",
+                    TabSymbol: "\t",
+                },
+            ],
+            function (text) {
+                resolve(text ? text : "");
+            },
+        );
     });
 }
 
@@ -101,9 +119,9 @@ async function getSourceText() {
             (option) => option.value === startSelectedStandard,
         );
 
-        if (optionStillExists) {
-            select.value = startSelectedStandard;
-        }
+        select.value = optionStillExists
+            ? startSelectedStandard
+            : newOptions[0].value;
     }
 
     function directionToLabelArray(direction) {
@@ -122,34 +140,123 @@ async function getSourceText() {
     function renderPreviewTexts(
         selectedPreview,
         transliteratedPreview,
-        sourceText,
+        selectedText,
+        transliteratedLines,
+    ) {
+        selectedPreview.innerText = selectedText
+            ? selectedText.slice(0, 500)
+            : "Select text";
+
+        transliteratedPreview.innerText = selectedText
+            ? transliteratedLines.join("\n").slice(0, 500)
+            : "Transliteration";
+    }
+
+    function transliterateLines(selectedText, standard, direction) {
+        if (!selectedText) return [];
+
+        return selectedText
+            .replace(/\r\n?/g, "\n")
+            .slice(0, -1)
+            .split("\n")
+            .map(function (line) {
+                return Transliterator.transliterate(
+                    line,
+                    standard,
+                    DIRECTION_MAPPINGS[direction],
+                );
+            });
+    }
+
+    function updateReplaceButton(replaceButton) {
+        replaceButton.disabled =
+            busyReplacing ||
+            !sourceText ||
+            window.Asc.plugin.info.editoType === "cell";
+    }
+
+    async function refreshSelection(
+        replaceStatus,
+        selectedPreview,
+        transliteratedPreview,
+        replaceButton,
         standard,
         direction,
     ) {
-        if (selectedPreview && sourceText) {
-            selectedPreview.innerText = sourceText.slice(0, 500);
-        }
-
-        if (selectedPreview && !sourceText) {
-            selectedPreview.innerText = "Select text";
-        }
-
-        let transliteratedText = "";
-
-        if (sourceText) {
-            transliteratedText = Transliterator.transliterate(
+        try {
+            sourceText = (await getSourceText()) || "";
+            transliteratedLines = transliterateLines(
                 sourceText,
                 standard,
-                DIRECTION_MAPPINGS[direction],
+                direction,
             );
 
-            if (transliteratedPreview) {
-                transliteratedPreview.innerText = transliteratedText;
-            }
+            renderPreviewTexts(
+                selectedPreview,
+                transliteratedPreview,
+                sourceText,
+                transliteratedLines,
+            );
+        } catch (error) {
+            sourceText = "";
+            transliteratedLines = [];
+
+            replaceStatus.innerText = error.message;
         }
 
-        if (transliteratedPreview && !sourceText) {
-            transliteratedPreview.innerText = "Transliteration";
+        updateReplaceButton(replaceButton);
+        replaceStatus.innerText = "";
+    }
+
+    async function replaceSelection(
+        replaceStatus,
+        replaceButton,
+        selectedPreview,
+        transliteratedPreview,
+        standard,
+        direction,
+    ) {
+        if (busyReplacing || !sourceText) return;
+
+        if (window.Asc.plugin.info.editorType === "cell") {
+            return;
+        }
+
+        busyReplacing = true;
+        replaceButton.disabled = true;
+        replaceStatus.innerText = "Replacing...";
+
+        try {
+            const isDone = await new Promise(function (resolve) {
+                window.Asc.plugin.executeMethod(
+                    "ReplaceTextSmart",
+                    [transliteratedLines, "\t", "\n"],
+                    function (result) {
+                        resolve(result);
+                    },
+                );
+            });
+
+            if (isDone === false) {
+                replaceStatus.innerText = "Could not replace this selection";
+                return;
+            }
+
+            await refreshSelection(
+                replaceStatus,
+                selectedPreview,
+                transliteratedPreview,
+                replaceButton,
+                standard,
+                direction,
+            );
+
+            replaceStatus.innerText = "Done";
+        } catch (error) {
+            replaceStatus.innerText = error.message;
+        } finally {
+            busyReplacing = false;
+            updateReplaceButton(replaceButton);
         }
     }
 
@@ -164,47 +271,69 @@ async function getSourceText() {
         const transliteratedPreview = document.getElementById(
             "transliterated-preview",
         );
+        const replaceButton = document.getElementById("replace-button");
+        const replaceStatus = document.getElementById("replace-status");
 
-        const sourceText = await getSourceText();
-
-        if (!sourceText) console.log("Source text is empty");
-
-        await Transliterator.load();
+        try {
+            await Transliterator.load();
+        } catch (error) {
+            replaceStatus.innerText = "Could not load transliteration tables";
+            replaceButton.disabled = true;
+            return;
+        }
 
         renderStandards(standardSelect, directionSelect.value);
         renderLabels(selectedLabel, transliteratedLabel, directionSelect.value);
-        renderPreviewTexts(
+
+        await refreshSelection(
+            replaceStatus,
             selectedPreview,
             transliteratedPreview,
-            sourceText,
+            replaceButton,
             standardSelect.value,
             directionSelect.value,
         );
 
-        directionSelect.addEventListener("change", () => {
-            renderStandards(standardSelect, directionSelect.value);
-            renderLabels(
-                selectedLabel,
-                transliteratedLabel,
-                directionSelect.value,
-            );
-            renderPreviewTexts(
-                selectedPreview,
-                transliteratedPreview,
-                sourceText,
-                standardSelect.value,
-                directionSelect.value,
-            );
-        });
+        if (!isEventListenersAttached) {
+            directionSelect.addEventListener("change", async () => {
+                renderStandards(standardSelect, directionSelect.value);
+                renderLabels(
+                    selectedLabel,
+                    transliteratedLabel,
+                    directionSelect.value,
+                );
 
-        standardSelect.addEventListener("change", () => {
-            renderPreviewTexts(
-                selectedPreview,
-                transliteratedPreview,
-                sourceText,
-                standardSelect.value,
-                directionSelect.value,
+                await refreshSelection(
+                    replaceStatus,
+                    selectedPreview,
+                    transliteratedPreview,
+                    replaceButton,
+                    standardSelect.value,
+                    directionSelect.value,
+                );
+            });
+
+            standardSelect.addEventListener("change", async () => {
+                await refreshSelection(
+                    replaceStatus,
+                    selectedPreview,
+                    transliteratedPreview,
+                    replaceButton,
+                    standardSelect.value,
+                    directionSelect.value,
+                );
+            });
+
+            replaceButton.addEventListener("click", () =>
+                replaceSelection(
+                    replaceStatus,
+                    replaceButton,
+                    selectedPreview,
+                    transliteratedPreview,
+                    standardSelect.value,
+                    directionSelect.value,
+                ),
             );
-        });
+        }
     };
 })(window, undefined);
