@@ -80,6 +80,12 @@ async function getSourceText() {
         "greek-to-latin": ["elot743"],
     };
 
+    const DIRECTION_MAPPINGS = {
+        "cyrillic-to-latin": "forward",
+        "latin-to-cyrillic": "reverse",
+        "greek-to-latin": "forward",
+    };
+
     function renderStandards(select, selectedDirection) {
         const startSelectedStandard = select.value;
 
@@ -100,29 +106,105 @@ async function getSourceText() {
         }
     }
 
+    function directionToLabelArray(direction) {
+        return direction
+            .replace("-to-", "-")
+            .split("-")
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1));
+    }
+
+    function renderLabels(selectedLabel, transliteratedLabel, direction) {
+        const labelArray = directionToLabelArray(direction);
+        selectedLabel.innerText = labelArray[0];
+        transliteratedLabel.innerText = labelArray[1];
+    }
+
+    function renderPreviewTexts(
+        selectedPreview,
+        transliteratedPreview,
+        sourceText,
+        standard,
+        direction,
+    ) {
+        if (selectedPreview && sourceText) {
+            selectedPreview.innerText = sourceText.slice(0, 500);
+        }
+
+        if (selectedPreview && !sourceText) {
+            selectedPreview.innerText = "Select text";
+        }
+
+        let transliteratedText = "";
+
+        if (sourceText) {
+            transliteratedText = Transliterator.transliterate(
+                sourceText,
+                standard,
+                DIRECTION_MAPPINGS[direction],
+            );
+
+            if (transliteratedPreview) {
+                transliteratedPreview.innerText = transliteratedText;
+            }
+        }
+
+        if (transliteratedPreview && !sourceText) {
+            transliteratedPreview.innerText = "Transliteration";
+        }
+    }
+
     window.Asc.plugin.init = async function () {
         const directionSelect = document.getElementById("direction");
         const standardSelect = document.getElementById("standard");
+        const selectedLabel = document.getElementById("selected-label");
+        const transliteratedLabel = document.getElementById(
+            "transliterated-label",
+        );
+        const selectedPreview = document.getElementById("selected-preview");
+        const transliteratedPreview = document.getElementById(
+            "transliterated-preview",
+        );
 
-        renderStandards(standardSelect, directionSelect.value);
-
-        directionSelect.addEventListener("change", () => {
-            renderStandards(standardSelect, directionSelect.value);
-        });
-
-        let sourceText = await getSourceText();
+        const sourceText = await getSourceText();
 
         if (!sourceText) console.log("Source text is empty");
 
-        var preview = document.getElementById("preview");
-
-        if (preview) {
-            preview.value = sourceText.slice(0, 500);
-        }
-
         await Transliterator.load();
-        console.log(
-            Transliterator.transliterate(sourceText, "icao", "forward"),
+
+        renderStandards(standardSelect, directionSelect.value);
+        renderLabels(selectedLabel, transliteratedLabel, directionSelect.value);
+        renderPreviewTexts(
+            selectedPreview,
+            transliteratedPreview,
+            sourceText,
+            standardSelect.value,
+            directionSelect.value,
         );
+
+        directionSelect.addEventListener("change", () => {
+            renderStandards(standardSelect, directionSelect.value);
+            renderLabels(
+                selectedLabel,
+                transliteratedLabel,
+                directionSelect.value,
+            );
+            renderPreviewTexts(
+                selectedPreview,
+                transliteratedPreview,
+                sourceText,
+                standardSelect.value,
+                directionSelect.value,
+            );
+        });
+
+        standardSelect.addEventListener("change", () => {
+            renderPreviewTexts(
+                selectedPreview,
+                transliteratedPreview,
+                sourceText,
+                standardSelect.value,
+                directionSelect.value,
+            );
+        });
     };
 })(window, undefined);
