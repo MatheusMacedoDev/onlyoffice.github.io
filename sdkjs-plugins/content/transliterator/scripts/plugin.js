@@ -20,6 +20,11 @@ let sourceText = "";
 let transliteratedLines = [];
 let busyReplacing = false;
 let isEventListenersAttached = false;
+const DIRECTION_MAPPINGS = {
+    "cyrillic-to-latin": "forward",
+    "latin-to-cyrillic": "reverse",
+    "greek-to-latin": "forward",
+};
 
 async function getWordAndSlideSourceText() {
     return new Promise((resolve) => {
@@ -51,7 +56,6 @@ async function getCellSourceText() {
 
                 selection.ForEach((cell) => {
                     const formula = cell.GetFormula();
-                    const value = cell.GetValue();
 
                     if (
                         typeof formula === "string" &&
@@ -59,6 +63,7 @@ async function getCellSourceText() {
                     )
                         return;
 
+                    const value = cell.GetValue();
                     if (typeof value === "string" && value.length > 0)
                         values.push(value);
                 });
@@ -82,6 +87,163 @@ async function getSourceText() {
         return await getWordAndSlideSourceText();
 }
 
+function replaceCells(standard, direction) {
+    const trie = Transliterator.getTrie(
+        standard,
+        DIRECTION_MAPPINGS[direction],
+    );
+
+    if (!trie) {
+        return Promise.reject(
+            new Error(
+                "No transliteration rules for the selected table and direction",
+            ),
+        );
+    }
+
+    // Store the computed trie in a global variable so that it can be accessed by callCommand
+    window.Asc.scope.rules = trie;
+
+    return new Promise(function (resolve, reject) {
+        try {
+            window.Asc.plugin.callCommand(
+                function () {
+                    var trie = Asc.scope.rules;
+
+                    function isUpperCaseValue(value) {
+                        return (
+                            value.toUpperCase() === value &&
+                            value.toLowerCase() !== value
+                        );
+                    }
+
+                    function isLowerCaseValue(value) {
+                        return (
+                            value.toLowerCase() === value &&
+                            value.toUpperCase() !== value
+                        );
+                    }
+
+                    function capitalizeFirstLetter(value) {
+                        if (!value) return value;
+                        return (
+                            value.charAt(0).toUpperCase() +
+                            value.slice(1).toLowerCase()
+                        );
+                    }
+
+                    // Handles capitalization rules,
+                    // examples: "Щ" -> "Shch", "Ща" -> "Sha", "ЩА" -> "SHA"
+                    function applyMatchCase(source, target, nextSourceChar) {
+                        if (!source || !target) return target;
+
+                        if (source.length > 1) {
+                            if (isUpperCaseValue(source))
+                                return target.toUpperCase();
+                            if (isLowerCaseValue(source))
+                                return target.toLowerCase();
+                            return target;
+                        }
+
+                        if (!isUpperCaseValue(source)) return target;
+
+                        if (
+                            target.length > 1 &&
+                            nextSourceChar &&
+                            isLowerCaseValue(nextSourceChar)
+                        )
+                            return capitalizeFirstLetter(target);
+
+                        return target.toUpperCase();
+                    }
+
+                    function transliterate(input,trie) {
+                        var output = "";
+                        var start = 0;
+                        var cursor;
+                        var node;
+                        var nextNode;
+                        var lastMatchValue;
+                        var lastMatchLength;
+
+                        while (start < input.length) {
+                            // Restart at the root for each unprocessed character.
+                            node = trie;
+                            lastMatchValue = null;
+                            lastMatchLength = 0;
+                            // Trie traversal naturally implements the longest match rule.
+                            for (cursor = start; cursor < input.length; cursor += 1) {
+                                nextNode = node.children[input.charAt(cursor)];
+
+                                if (!nextNode) {
+                                    break;
+                                }
+
+                                node = nextNode;
+
+                                if (node.value !== null) {
+                                    lastMatchValue = node.value;
+                                    lastMatchLength = cursor - start + 1;
+                                }
+                            }
+
+                            if (lastMatchLength > 0) {
+                                // Handle case matching for the transliterated value based on the input segment.
+                                output += applyMatchCase(
+                                    input.slice(start, start + lastMatchLength),
+                                    lastMatchValue,
+                                    input.charAt(start + lastMatchLength),
+                                );
+                                start += lastMatchLength;
+                            } else {
+                                // No match found, preserve the original character.
+                                output += input.charAt(start);
+                                start += 1;
+                            }
+                        }
+
+                        return output;
+                    }
+
+                    var count = 0;
+                    Api.GetSelection().ForEach(function (cell) {
+                        var f = cell.GetFormula();
+                        if (
+                            typeof f === "string" &&
+                            f.charAt(0) === "="
+                        )
+                            return;
+
+                        var v = cell.GetValue();
+                        if (typeof v === "string" && v !== "") {
+                            cell.SetValue(transliterate(v,trie));
+                            count ++;
+                        }
+                    });
+
+                    return count;
+                },
+                false,
+                true,
+                function (count) {
+                    if (typeof count !== "number") {
+                        reject(
+                            new Error(
+                                "Could not retrieve the converted cell count",
+                            ),
+                        );
+                        return;
+                    }
+
+                    resolve(count);
+                },
+            );
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
 (function (window) {
     "use strict";
 
@@ -96,12 +258,6 @@ async function getSourceText() {
         "cyrillic-to-latin": ["icao", "gost779b", "iso9"],
         "latin-to-cyrillic": ["gost779b", "iso9"],
         "greek-to-latin": ["elot743"],
-    };
-
-    const DIRECTION_MAPPINGS = {
-        "cyrillic-to-latin": "forward",
-        "latin-to-cyrillic": "reverse",
-        "greek-to-latin": "forward",
     };
 
     function renderStandards(select, selectedDirection) {
@@ -155,9 +311,12 @@ async function getSourceText() {
     function transliterateLines(selectedText, standard, direction) {
         if (!selectedText) return [];
 
-        return selectedText
-            .replace(/\r\n?/g, "\n")
-            .slice(0, -1)
+        const normalizedText = selectedText.replace(/\r\n?/g, "\n");
+        const textWithoutTrailingNewline = normalizedText.endsWith("\n")
+            ? normalizedText.slice(0, -1)
+            : normalizedText;
+
+        return textWithoutTrailingNewline
             .split("\n")
             .map(function (line) {
                 return Transliterator.transliterate(
@@ -169,10 +328,7 @@ async function getSourceText() {
     }
 
     function updateReplaceButton(replaceButton) {
-        replaceButton.disabled =
-            busyReplacing ||
-            !sourceText ||
-            window.Asc.plugin.info.editoType === "cell";
+        replaceButton.disabled = busyReplacing || !sourceText;
     }
 
     async function refreshSelection(
@@ -202,10 +358,13 @@ async function getSourceText() {
             transliteratedLines = [];
 
             replaceStatus.innerText = error.message;
+            updateReplaceButton(replaceButton);
+            return false;
         }
 
         updateReplaceButton(replaceButton);
         replaceStatus.innerText = "";
+        return true;
     }
 
     async function replaceSelection(
@@ -218,15 +377,47 @@ async function getSourceText() {
     ) {
         if (busyReplacing || !sourceText) return;
 
-        if (window.Asc.plugin.info.editorType === "cell") {
-            return;
-        }
-
         busyReplacing = true;
         replaceButton.disabled = true;
         replaceStatus.innerText = "Replacing...";
 
         try {
+            if (window.Asc.plugin.info.editorType === "cell") {
+                const convertedText = transliteratedLines.join("\n");
+                const count = await replaceCells(standard, direction);
+
+                const selectionRefreshed = await refreshSelection(
+                    replaceStatus,
+                    selectedPreview,
+                    transliteratedPreview,
+                    replaceButton,
+                    standard,
+                    direction,
+                );
+
+                if (count > 0 && !sourceText) {
+                    sourceText = convertedText;
+                    transliteratedLines = transliterateLines(
+                        sourceText,
+                        standard,
+                        direction,
+                    );
+                    renderPreviewTexts(
+                        selectedPreview,
+                        transliteratedPreview,
+                        sourceText,
+                        transliteratedLines,
+                    );
+                }
+
+                const replacementStatus =
+                    "Replaced " + count + (count === 1 ? " cell" : " cells");
+                replaceStatus.innerText = selectionRefreshed
+                    ? replacementStatus
+                    : replacementStatus + ". " + replaceStatus.innerText;
+                return;
+            }
+
             const isDone = await new Promise(function (resolve) {
                 window.Asc.plugin.executeMethod(
                     "ReplaceTextSmart",
