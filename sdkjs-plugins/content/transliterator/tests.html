@@ -5,68 +5,46 @@
     <title>Transliterator Tests</title>
     <script type="text/javascript" src="scripts/translit.js"></script>
     <style>
-        :root {
-            color-scheme: light;
-            --bg: #f5f7fb;
-            --panel: #ffffff;
-            --text: #1f2937;
-            --muted: #6b7280;
-            --pass: #1f7a3d;
-            --pass-bg: #e9f8ef;
-            --fail: #b42318;
-            --fail-bg: #fff0ee;
-            --border: #d0d7e2;
-        }
-
         body {
             margin: 0;
-            padding: 24px;
-            background: linear-gradient(180deg, #eef3ff 0%, var(--bg) 100%);
-            color: var(--text);
-            font: 14px/1.5 "Segoe UI", Arial, sans-serif;
+            background: #f5f5f5;
+            color: #222;
+            font: Arial, sans-serif;
         }
 
         main {
-            max-width: 960px;
-            margin: 0 auto;
+            width: 80%;
+            margin: auto;
         }
 
         h1 {
-            margin: 0 0 8px;
-            font-size: 28px;
+            text-align: center;
         }
 
         p {
-            margin: 0 0 16px;
-            color: var(--muted);
+            color: #555;
+            text-align: center;
         }
 
         .panel {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
-            padding: 20px;
+            background: #fff;
+            border: 1px solid #ccc;
         }
 
         .summary {
             display: flex;
-            gap: 12px;
+            justify-content: center;
             flex-wrap: wrap;
-            margin-bottom: 20px;
         }
 
         .summary-item {
-            min-width: 120px;
-            padding: 12px 14px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            background: #f8fafc;
+            border: 1px solid #ccc;
+            background: #fafafa;
+            text-align: center;
         }
 
         .summary-item strong {
             display: block;
-            font-size: 20px;
         }
 
         table {
@@ -76,48 +54,36 @@
 
         th,
         td {
-            padding: 10px 12px;
-            border-top: 1px solid var(--border);
+            border: 1px solid #ccc;
             text-align: left;
             vertical-align: top;
         }
 
-        th {
-            color: var(--muted);
-            font-weight: 600;
-            border-top: none;
-        }
-
         .status {
             display: inline-block;
-            min-width: 52px;
-            padding: 4px 8px;
-            border-radius: 999px;
-            font-size: 12px;
             font-weight: 700;
             text-align: center;
         }
 
         .status-pass {
-            color: var(--pass);
-            background: var(--pass-bg);
+            color: #0a6b2d;
+            background: #e7f6eb;
         }
 
         .status-fail {
-            color: var(--fail);
-            background: var(--fail-bg);
+            color: #a12622;
+            background: #fdecea;
         }
 
         code {
             font-family: Consolas, "Courier New", monospace;
-            font-size: 13px;
         }
     </style>
 </head>
 <body>
     <main>
         <h1>Transliterator Unit Tests</h1>
-        <p>Edit the <code>TEST_CASES</code> array in this file to add more cases. Reload the page to rerun them.</p>
+        <p>This page runs fixed examples and coverage checks for every table mapping. Reload it to rerun the tests.</p>
 
         <section class="panel">
             <div class="summary" id="summary"></div>
@@ -140,57 +106,203 @@
     (function() {
         "use strict";
 
-        var TEST_CASES = [
-            {
-                name: "ICAO preserves title case",
-                table: "icao",
-                direction: "forward",
-                input: "Жук",
-                expected: "Zhuk"
-            },
-            {
-                name: "ICAO preserves uppercase word",
-                table: "icao",
-                direction: "forward",
-                input: "ЖУК",
-                expected: "ZHUK"
-            },
-            {
-                name: "ICAO preserves lowercase word",
-                table: "icao",
-                direction: "forward",
-                input: "жук",
-                expected: "zhuk"
-            },
-            {
-                name: "ICAO capitalizes only first Latin letter before lowercase",
-                table: "icao",
-                direction: "forward",
-                input: "Щука",
-                expected: "Shchuka"
-            },
-            {
-                name: "ICAO capitalizes all Latin letters when source letter stands alone",
-                table: "icao",
-                direction: "forward",
-                input: "Щ",
-                expected: "SHCH"
-            },
-            {
-                name: "GOST reverse longest match",
-                table: "gost779b",
-                direction: "reverse",
-                input: "Shhukin",
-                expected: "Щукин"
-            },
-            {
-                name: "ICAO long sentence",
-                table: "icao",
-                direction: "forward",
-                input: "Москва, ул. Щербакова 7",
-                expected: "Moskva, ul. Shcherbakova 7"
-            }
+        var TEST_CASES = [];
+        var TABLE_FILES = {
+            icao: "icao.json",
+            gost779b: "gost779b.json",
+            iso9: "iso9.json",
+            elot743: "elot743.json"
+        };
+        var CASE_GROUPS = [
+            { table: "icao", direction: "forward", name: "ICAO forward", cases: [["жук", "zhuk"], ["ЖУК", "ZHUK"], ["Щука", "Shchuka"]] },
+            { table: "gost779b", direction: "forward", name: "GOST forward", cases: [["жук", "zhuk"], ["ЖУК", "ZHUK"], ["Щука", "Shhuka"]] },
+            { table: "iso9", direction: "forward", name: "ISO 9 forward", cases: [["жук", "žuk"], ["ЖУК", "ŽUK"], ["Щука", "Ŝuka"]] },
+            { table: "gost779b", direction: "reverse", name: "GOST reverse", cases: [["zhuk", "жук"], ["A", "А"], ["Shh", "Щ"]] },
+            { table: "iso9", direction: "reverse", name: "ISO 9 reverse", cases: [["žuk", "жук"], ["Ž", "Ж"], ["ʹ", "ь"]] },
+            { table: "elot743", direction: "forward", name: "ELOT 743 forward", cases: [["θα", "tha"], ["ΘΑ", "THA"], ["Θα", "Tha"]] },
+            { table: "elot743", direction: "reverse", name: "ELOT 743 reverse", cases: [["tha", "θα"], ["A", "Α"], ["Th", "Θ"]] }
         ];
+        var GREEK_COMPOUNDS = [
+            ["γγ", "ng"], ["γξ", "nx"], ["γχ", "nch"], ["γκ", "gk"], ["ου", "ou"],
+            ["αυ", "af"], ["ευ", "ef"], ["ηυ", "if"]
+        ];
+        var GREEK_ENDINGS = [
+            ["β", "v"], ["γ", "g"], ["δ", "d"], ["ζ", "z"], ["λ", "l"],
+            ["μ", "m"], ["ν", "n"], ["ρ", "r"], ["α", "a"], ["ε", "e"],
+            ["η", "i"], ["ι", "i"], ["ο", "o"], ["υ", "y"], ["ω", "o"]
+        ];
+        var GREEK_DIPHTHONGS = [];
+        var diphthongFamilies = [["αυ", "av"], ["ευ", "ev"], ["ηυ", "iv"]];
+        var familyIndex;
+        var endingIndex;
+
+        CASE_GROUPS.forEach(function(group) {
+            group.cases.forEach(function(testCase, index) {
+                addTest(group.name + " case " + (index + 1), group.table, group.direction, testCase[0], testCase[1]);
+            });
+        });
+
+        [
+            ["ICAO Russian pangram", "icao", "Съешь же ещё этих мягких французских булок да выпей чаю.", "Sieesh zhe eshche etikh miagkikh frantsuzskikh bulok da vypei chaiu."],
+            ["GOST Russian pangram", "gost779b", "Съешь же ещё этих мягких французских булок да выпей чаю.", "S``esh` zhe eshhyo e`tix myagkix franцuzskix bulok da vy`pej chayu."],
+            ["ISO 9 Russian pangram", "iso9", "Съешь же ещё этих мягких французских булок да выпей чаю.", "Sʺešʹ že eŝë ètih mâgkih francuzskih bulok da vypej čaû."],
+            ["ELOT Greek pangram", "elot743", "διαφυλάξτε γενικά τη ζωή σας από βαθειά ψυχικά τραύματα", "diafylάxte genikά ti zoή sas apό vatheiά psychikά traύmata"]
+        ].forEach(function(testCase) {
+            addTest(testCase[0], testCase[1], "forward", testCase[2], testCase[3]);
+        });
+
+        for (familyIndex = 0; familyIndex < diphthongFamilies.length; familyIndex += 1) {
+            for (endingIndex = 0; endingIndex < GREEK_ENDINGS.length; endingIndex += 1) {
+                GREEK_DIPHTHONGS.push([
+                    diphthongFamilies[familyIndex][0] + GREEK_ENDINGS[endingIndex][0],
+                    diphthongFamilies[familyIndex][1] + GREEK_ENDINGS[endingIndex][1]
+                ]);
+            }
+        }
+        var greekForwardByInput = Object.create(null);
+        var greekForwardInputs = [];
+        GREEK_COMPOUNDS.forEach(function(pair) {
+            greekForwardInputs.push(pair[0]);
+            greekForwardByInput[pair[0]] = pair[1];
+        });
+        GREEK_DIPHTHONGS.forEach(function(pair) {
+            if (!Object.prototype.hasOwnProperty.call(greekForwardByInput, pair[1])) {
+                greekForwardInputs.push(pair[1]);
+            }
+            greekForwardByInput[pair[1]] = pair[0];
+        });
+        var greekForwardCompoundCases = greekForwardInputs.map(function(input) {
+            return [input, greekForwardByInput[input]];
+        });
+        var greekReverseCompoundCases = GREEK_COMPOUNDS.map(function(pair) {
+            return [pair[1], pair[0]];
+        }).concat(GREEK_DIPHTHONGS);
+        addTest("ELOT Greek compound mappings forward", "elot743", "forward",
+            greekForwardCompoundCases.map(function(pair) { return pair[0]; }).join(" | "),
+            greekForwardCompoundCases.map(function(pair) { return pair[1]; }).join(" | "));
+        addTest("ELOT Greek compound mappings reverse", "elot743", "reverse",
+            greekReverseCompoundCases.map(function(pair) { return pair[0]; }).join(" | "),
+            greekReverseCompoundCases.map(function(pair) { return pair[1]; }).join(" | "));
+
+        [
+            ["ICAO longest match in a name", "icao", "forward", "Щербакова", "Shcherbakova"],
+            ["ICAO preserves punctuation and digits", "icao", "forward", "Москва, ул. Щербакова 7", "Moskva, ul. Shcherbakova 7"],
+            ["GOST reverse longest match", "gost779b", "reverse", "Shhukin", "Щукин"],
+            ["ICAO uppercases an isolated multi-letter mapping", "icao", "forward", "Щ", "SHCH"],
+            ["ISO 9 transliterates the soft sign", "iso9", "forward", "ь", "ʹ"],
+            ["ISO 9 reverse transliterates the soft sign", "iso9", "reverse", "ʹ", "ь"],
+            ["ELOT title case before a lowercase letter", "elot743", "forward", "Θα", "Tha"],
+            ["ELOT uppercase theta", "elot743", "forward", "Θ", "TH"],
+            ["ELOT lowercase theta", "elot743", "forward", "θ", "th"],
+            ["ELOT gamma-gamma forward", "elot743", "forward", "γγ", "ng"],
+            ["ELOT gamma-gamma reverse", "elot743", "reverse", "ng", "γγ"],
+            ["ELOT contextual alpha-upsilon mapping", "elot743", "forward", "avv", "αυβ"],
+            ["ELOT eta-upsilon-nu mapping", "elot743", "forward", "ivn", "ηυν"],
+            ["Passport transliterates Щукин Юрий", "icao", "forward", "Щукин Юрий", "Shchukin Iurii"],
+            ["GOST 7.79 System B lowercase щука", "gost779b", "forward", "щука", "shhuka"],
+            ["ISO 9 lowercase щука", "iso9", "forward", "щука", "ŝuka"],
+            ["GOST 7.79 System B reverses shhuka", "gost779b", "reverse", "shhuka", "щука"],
+            ["Passport Replace sentence example", "icao", "forward", "Москва, ул. Щербакова 7", "Moskva, ul. Shcherbakova 7"]
+        ].forEach(function(testCase) {
+            addTest(testCase[0], testCase[1], testCase[2], testCase[3], testCase[4]);
+        });
+
+        function addTest(name, table, direction, input, expected) {
+            TEST_CASES.push({
+                name: name,
+                table: table,
+                direction: direction,
+                input: input,
+                expected: expected
+            });
+        }
+
+        function loadTableFixtures() {
+            return Promise.all(Object.keys(TABLE_FILES).map(function(tableName) {
+                var url = new URL("./scripts/tables/" + TABLE_FILES[tableName], window.location.href);
+
+                return fetch(url.toString()).then(function(response) {
+                    if (!response.ok) {
+                        throw new Error("Failed to load test fixture: " + url.toString());
+                    }
+
+                    return response.json();
+                }).then(function(payload) {
+                    return [tableName, payload && payload.table ? payload.table : []];
+                });
+            })).then(function(tableFixtures) {
+                var fixtures = Object.create(null);
+
+                tableFixtures.forEach(function(fixture) {
+                    fixtures[fixture[0]] = fixture[1];
+                });
+
+                return fixtures;
+            });
+        }
+
+        function isUpperCaseValue(value) {
+            return value.toUpperCase() === value && value.toLowerCase() !== value;
+        }
+
+        function isLowerCaseValue(value) {
+            return value.toLowerCase() === value && value.toUpperCase() !== value;
+        }
+
+        function expectedForExactMapping(source, target) {
+            if (!source || !target) {
+                return target;
+            }
+
+            if (source.length > 1) {
+                if (isUpperCaseValue(source)) {
+                    return target.toUpperCase();
+                }
+
+                if (isLowerCaseValue(source)) {
+                    return target.toLowerCase();
+                }
+
+                return target;
+            }
+
+            return isUpperCaseValue(source) ? target.toUpperCase() : target;
+        }
+
+        function addTableCoverageTests(tableFixtures) {
+            Object.keys(tableFixtures).forEach(function(tableName) {
+                var directions = tableName === "icao" ? ["forward"] : ["forward", "reverse"];
+
+                directions.forEach(function(direction) {
+                    var sourceIndex = direction === "forward" ? 1 : 0;
+                    var targetIndex = direction === "forward" ? 0 : 1;
+                    var expectedBySource = Object.create(null);
+                    var sources = [];
+
+                    tableFixtures[tableName].forEach(function(pair) {
+                        var source = pair[sourceIndex];
+
+                        if (source && !Object.prototype.hasOwnProperty.call(expectedBySource, source)) {
+                            sources.push(source);
+                        }
+
+                        if (source) {
+                            expectedBySource[source] = pair[targetIndex];
+                        }
+                    });
+
+                    addTest(
+                        tableName + " " + direction + " covers every table mapping",
+                        tableName,
+                        direction,
+                        sources.join(" | "),
+                        sources.map(function(source) {
+                            return expectedForExactMapping(source, expectedBySource[source]);
+                        }).join(" | ")
+                    );
+                });
+            });
+        }
 
         function runTest(testCase) {
             var actual;
@@ -249,10 +361,11 @@
             }).join("");
         }
 
-        window.Transliterator.load().then(function() {
-            var results = TEST_CASES.map(runTest);
-            renderSummary(results);
-            renderResults(results);
+        Promise.all([window.Transliterator.load(), loadTableFixtures()]).then(function(results) {
+            addTableCoverageTests(results[1]);
+            var testResults = TEST_CASES.map(runTest);
+            renderSummary(testResults);
+            renderResults(testResults);
         }).catch(function(error) {
             document.getElementById("summary").innerHTML = "<div class=\"summary-item\"><span>Error</span><strong>Load failed</strong></div>";
             document.getElementById("results").innerHTML = "<tr><td colspan=\"5\"><code>" + String(error) + "</code></td></tr>";
