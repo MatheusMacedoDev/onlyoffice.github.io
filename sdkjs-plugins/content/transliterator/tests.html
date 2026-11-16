@@ -114,13 +114,13 @@
             elot743: "elot743.json"
         };
         var CASE_GROUPS = [
-            { table: "icao", direction: "forward", name: "ICAO forward", cases: [["жук", "zhuk"], ["ЖУК", "ZHUK"], ["Щука", "Shchuka"]] },
-            { table: "gost779b", direction: "forward", name: "GOST forward", cases: [["жук", "zhuk"], ["ЖУК", "ZHUK"], ["Щука", "Shhuka"]] },
-            { table: "iso9", direction: "forward", name: "ISO 9 forward", cases: [["жук", "žuk"], ["ЖУК", "ŽUK"], ["Щука", "Ŝuka"]] },
-            { table: "gost779b", direction: "reverse", name: "GOST reverse", cases: [["zhuk", "жук"], ["A", "А"], ["Shh", "Щ"]] },
-            { table: "iso9", direction: "reverse", name: "ISO 9 reverse", cases: [["žuk", "жук"], ["Ž", "Ж"], ["ʹ", "ь"]] },
-            { table: "elot743", direction: "forward", name: "ELOT 743 forward", cases: [["θα", "tha"], ["ΘΑ", "THA"], ["Θα", "Tha"]] },
-            { table: "elot743", direction: "reverse", name: "ELOT 743 reverse", cases: [["tha", "θα"], ["A", "Α"], ["Th", "Θ"]] }
+            { table: "icao", direction: "forward", name: "ICAO forward case combinations", cases: [["ж", "zh"], ["Жук", "Zhuk"], ["ЖУК", "ZHUK"]] },
+            { table: "gost779b", direction: "forward", name: "GOST forward case combinations", cases: [["щука", "shhuka"], ["Щука", "Shhuka"], ["ЩУКА", "SHHUKA"]] },
+            { table: "gost779b", direction: "reverse", name: "GOST reverse case combinations", cases: [["shhuka", "щука"], ["Shhuka", "Щука"], ["SHHUKA", "ЩУКА"]] },
+            { table: "iso9", direction: "forward", name: "ISO 9 forward case combinations", cases: [["щука", "ŝuka"], ["Щука", "Ŝuka"], ["ЩУКА", "ŜUKA"]] },
+            { table: "iso9", direction: "reverse", name: "ISO 9 reverse case combinations", cases: [["ŝuka", "щука"], ["Ŝuka", "Щука"], ["ŜUKA", "ЩУКА"]] },
+            { table: "elot743", direction: "forward", name: "ELOT 743 forward case combinations", cases: [["θα", "tha"], ["Θα", "Tha"], ["ΘΑ", "THA"]] },
+            { table: "elot743", direction: "reverse", name: "ELOT 743 reverse case combinations", cases: [["tha", "θα"], ["Tha", "Θα"], ["THA", "ΘΑ"]] }
         ];
         var GREEK_COMPOUNDS = [
             ["γγ", "ng"], ["γξ", "nx"], ["γχ", "nch"], ["γκ", "gk"], ["ου", "ou"],
@@ -137,14 +137,18 @@
         var endingIndex;
 
         CASE_GROUPS.forEach(function(group) {
-            group.cases.forEach(function(testCase, index) {
-                addTest(group.name + " case " + (index + 1), group.table, group.direction, testCase[0], testCase[1]);
-            });
+            addTest(
+                group.name,
+                group.table,
+                group.direction,
+                group.cases.map(function(testCase) { return testCase[0]; }).join(" | "),
+                group.cases.map(function(testCase) { return testCase[1]; }).join(" | ")
+            );
         });
 
         [
             ["ICAO Russian pangram", "icao", "Съешь же ещё этих мягких французских булок да выпей чаю.", "Sieesh zhe eshche etikh miagkikh frantsuzskikh bulok da vypei chaiu."],
-            ["GOST Russian pangram", "gost779b", "Съешь же ещё этих мягких французских булок да выпей чаю.", "S``esh` zhe eshhyo e`tix myagkix franцuzskix bulok da vy`pej chayu."],
+            ["GOST Russian pangram", "gost779b", "Съешь же ещё этих мягких французских булок да выпей чаю.", "S``esh` zhe eshhyo e`tix myagkix franczuzskix bulok da vy`pej chayu."],
             ["ISO 9 Russian pangram", "iso9", "Съешь же ещё этих мягких французских булок да выпей чаю.", "Sʺešʹ že eŝë ètih mâgkih francuzskih bulok da vypej čaû."],
             ["ELOT Greek pangram", "elot743", "διαφυλάξτε γενικά τη ζωή σας από βαθειά ψυχικά τραύματα", "diafylάxte genikά ti zoή sas apό vatheiά psychikά traύmata"]
         ].forEach(function(testCase) {
@@ -185,24 +189,19 @@
             greekReverseCompoundCases.map(function(pair) { return pair[1]; }).join(" | "));
 
         [
-            ["ICAO longest match in a name", "icao", "forward", "Щербакова", "Shcherbakova"],
-            ["ICAO preserves punctuation and digits", "icao", "forward", "Москва, ул. Щербакова 7", "Moskva, ul. Shcherbakova 7"],
-            ["GOST reverse longest match", "gost779b", "reverse", "Shhukin", "Щукин"],
-            ["ICAO uppercases an isolated multi-letter mapping", "icao", "forward", "Щ", "SHCH"],
-            ["ISO 9 transliterates the soft sign", "iso9", "forward", "ь", "ʹ"],
-            ["ISO 9 reverse transliterates the soft sign", "iso9", "reverse", "ʹ", "ь"],
-            ["ELOT title case before a lowercase letter", "elot743", "forward", "Θα", "Tha"],
-            ["ELOT uppercase theta", "elot743", "forward", "Θ", "TH"],
-            ["ELOT lowercase theta", "elot743", "forward", "θ", "th"],
-            ["ELOT gamma-gamma forward", "elot743", "forward", "γγ", "ng"],
-            ["ELOT gamma-gamma reverse", "elot743", "reverse", "ng", "γγ"],
-            ["ELOT contextual alpha-upsilon mapping", "elot743", "forward", "avv", "αυβ"],
-            ["ELOT eta-upsilon-nu mapping", "elot743", "forward", "ivn", "ηυν"],
             ["Passport transliterates Щукин Юрий", "icao", "forward", "Щукин Юрий", "Shchukin Iurii"],
             ["GOST 7.79 System B lowercase щука", "gost779b", "forward", "щука", "shhuka"],
             ["ISO 9 lowercase щука", "iso9", "forward", "щука", "ŝuka"],
+            ["ICAO transliterates uppercase ЖУК", "icao", "forward", "ЖУК", "ZHUK"],
+            ["ICAO transliterates title-case Жук", "icao", "forward", "Жук", "Zhuk"],
             ["GOST 7.79 System B reverses shhuka", "gost779b", "reverse", "shhuka", "щука"],
-            ["Passport Replace sentence example", "icao", "forward", "Москва, ул. Щербакова 7", "Moskva, ul. Shcherbakova 7"]
+            ["Passport Replace sentence example", "icao", "forward", "Москва, ул. Щербакова 7", "Moskva, ul. Shcherbakova 7"],
+            ["GOST chooses Russian ci and cyo mappings", "gost779b", "reverse", "ci | Ci | CYO", "ци | Ци | ЦЁ"],
+            ["GOST transliterates uppercase ЦИ and ЦЁ", "gost779b", "forward", "ЦИ | ЦЁ", "CI | CYO"],
+            ["GOST transliterates Цэ with all cases", "gost779b", "forward", "цэ | Цэ | ЦЭ", "ce` | Ce` | CE`"],
+            ["GOST reverses Цэ transliterations with all cases", "gost779b", "reverse", "ce` | Ce` | CE`", "цэ | Цэ | ЦЭ"],
+            ["GOST transliterates ѵ with both cases", "gost779b", "forward", "ѵ | Ѵ", "yh | YH"],
+            ["GOST reverses ѵ transliterations with all cases", "gost779b", "reverse", "yh | Yh | YH", "ѵ | Ѵ | Ѵ"]
         ].forEach(function(testCase) {
             addTest(testCase[0], testCase[1], testCase[2], testCase[3], testCase[4]);
         });
@@ -269,38 +268,105 @@
             return isUpperCaseValue(source) ? target.toUpperCase() : target;
         }
 
-        function addTableCoverageTests(tableFixtures) {
+        function forEachTableDirection(tableFixtures, callback) {
             Object.keys(tableFixtures).forEach(function(tableName) {
                 var directions = tableName === "icao" ? ["forward"] : ["forward", "reverse"];
 
                 directions.forEach(function(direction) {
-                    var sourceIndex = direction === "forward" ? 1 : 0;
-                    var targetIndex = direction === "forward" ? 0 : 1;
-                    var expectedBySource = Object.create(null);
-                    var sources = [];
-
-                    tableFixtures[tableName].forEach(function(pair) {
-                        var source = pair[sourceIndex];
-
-                        if (source && !Object.prototype.hasOwnProperty.call(expectedBySource, source)) {
-                            sources.push(source);
-                        }
-
-                        if (source) {
-                            expectedBySource[source] = pair[targetIndex];
-                        }
-                    });
-
-                    addTest(
-                        tableName + " " + direction + " covers every table mapping",
-                        tableName,
-                        direction,
-                        sources.join(" | "),
-                        sources.map(function(source) {
-                            return expectedForExactMapping(source, expectedBySource[source]);
-                        }).join(" | ")
-                    );
+                    callback(tableName, direction, tableFixtures[tableName]);
                 });
+            });
+        }
+
+        function getDirectionMappings(pairs, direction) {
+            var sourceIndex = direction === "forward" ? 1 : 0;
+            var targetIndex = direction === "forward" ? 0 : 1;
+            var expectedBySource = Object.create(null);
+            var sources = [];
+            var seen = Object.create(null);
+
+            function addMapping(source, target) {
+                if (!source) {
+                    return;
+                }
+
+                if (!Object.prototype.hasOwnProperty.call(seen, source)) {
+                    seen[source] = true;
+                    sources.push(source);
+                }
+
+                expectedBySource[source] = target;
+            }
+
+            pairs.forEach(function(pair) {
+                var source = pair[sourceIndex];
+                var target = pair[targetIndex];
+                var uppercaseSource;
+
+                addMapping(source, target);
+                uppercaseSource = source && source.toUpperCase();
+
+                if (source && source.length > 1 && uppercaseSource !== source) {
+                    addMapping(uppercaseSource, target);
+                }
+            });
+
+            return { sources: sources, expectedBySource: expectedBySource };
+        }
+
+        function addTableCoverageTests(tableFixtures) {
+            forEachTableDirection(tableFixtures, function(tableName, direction, pairs) {
+                var mappings = getDirectionMappings(pairs, direction);
+
+                addTest(
+                    tableName + " " + direction + " covers every mapping and uppercase key",
+                    tableName,
+                    direction,
+                    mappings.sources.join(" | "),
+                    mappings.sources.map(function(source) {
+                        return expectedForExactMapping(source, mappings.expectedBySource[source]);
+                    }).join(" | ")
+                );
+            });
+        }
+
+        function addLongestMatchTests(tableFixtures) {
+            forEachTableDirection(tableFixtures, function(tableName, direction, pairs) {
+                var mappings = getDirectionMappings(pairs, direction);
+                var inputs = [];
+                var expected = [];
+
+                mappings.sources.forEach(function(longerSource) {
+                    mappings.sources.forEach(function(shorterSource) {
+                        if (longerSource.length <= shorterSource.length || longerSource.indexOf(shorterSource) !== 0) {
+                            return;
+                        }
+
+                        inputs.push(longerSource + "|" + shorterSource);
+                        expected.push(
+                            expectedForExactMapping(longerSource, mappings.expectedBySource[longerSource]) + "|" +
+                            expectedForExactMapping(shorterSource, mappings.expectedBySource[shorterSource])
+                        );
+                    });
+                });
+
+                if (inputs.length === 0 && mappings.sources.length > 1) {
+                    var firstSource = mappings.sources[0];
+                    var secondSource = mappings.sources[1];
+                    inputs.push(firstSource + secondSource);
+                    expected.push(
+                        expectedForExactMapping(firstSource, mappings.expectedBySource[firstSource]) +
+                        expectedForExactMapping(secondSource, mappings.expectedBySource[secondSource])
+                    );
+                }
+
+                addTest(
+                    tableName + " " + direction + " longest-match or exact-key behavior",
+                    tableName,
+                    direction,
+                    inputs.join(" | "),
+                    expected.join(" | ")
+                );
             });
         }
 
@@ -363,6 +429,7 @@
 
         Promise.all([window.Transliterator.load(), loadTableFixtures()]).then(function(results) {
             addTableCoverageTests(results[1]);
+            addLongestMatchTests(results[1]);
             var testResults = TEST_CASES.map(runTest);
             renderSummary(testResults);
             renderResults(testResults);

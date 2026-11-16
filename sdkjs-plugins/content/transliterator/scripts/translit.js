@@ -64,6 +64,10 @@
 			}
 
 			insertIntoTrie(root, source, target);
+
+			if (source.length > 1 && source.toUpperCase() !== source) {
+				insertIntoTrie(root, source.toUpperCase(), target);
+			}
 		}
 
 		return root;
