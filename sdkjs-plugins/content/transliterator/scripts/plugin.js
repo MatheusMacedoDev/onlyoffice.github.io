@@ -273,6 +273,21 @@ function replaceCells(standard, direction) {
         "greek-to-latin": "No Greek letters found",
     };
 
+    const EXAMPLE_SOURCES = {
+        "cyrillic-to-latin": {
+            icao: "Щукин",
+            gost779b: "Щукин",
+            iso9: "Щукин",
+        },
+        "latin-to-cyrillic": {
+            gost779b: "shhuka",
+            iso9: "ŝuka",
+        },
+        "greek-to-latin": {
+            elot743: "Αθηνα",
+        },
+    };
+
     function renderStandards(select, selectedDirection) {
         const startSelectedStandard = select.value;
 
@@ -306,6 +321,23 @@ function replaceCells(standard, direction) {
         transliteratedLabel.innerText = labelArray[1];
     }
 
+    function renderExample(example, standard, direction) {
+        const source =
+            EXAMPLE_SOURCES[direction] && EXAMPLE_SOURCES[direction][standard];
+
+        if (!source) {
+            example.innerText = "";
+            return;
+        }
+
+        const converted = Transliterator.transliterate(
+            source,
+            standard,
+            DIRECTION_MAPPINGS[direction],
+        );
+        example.innerText = "Example: " + source + " → " + converted;
+    }
+
     function renderPreviewTexts(
         selectedPreview,
         transliteratedPreview,
@@ -318,7 +350,7 @@ function replaceCells(standard, direction) {
 
         transliteratedPreview.innerText = selectedText
             ? transliteratedLines.join("\n").slice(0, 500)
-            : "";
+            : "Transliteration";
     }
 
     function transliterateLines(selectedText, standard, direction) {
@@ -505,6 +537,7 @@ function replaceCells(standard, direction) {
         const copyButton = document.getElementById("copy-button");
         const refreshButton = document.getElementById("refresh-button");
         const replaceStatus = document.getElementById("replace-status");
+        const example = document.getElementById("example");
 
         buttons.replace = replaceButton;
         buttons.copy = copyButton;
@@ -520,6 +553,7 @@ function replaceCells(standard, direction) {
 
         renderStandards(standardSelect, directionSelect.value);
         renderLabels(selectedLabel, transliteratedLabel, directionSelect.value);
+        renderExample(example, standardSelect.value, directionSelect.value);
 
         await refreshSelection(
             replaceStatus,
@@ -537,6 +571,11 @@ function replaceCells(standard, direction) {
                     transliteratedLabel,
                     directionSelect.value,
                 );
+                renderExample(
+                    example,
+                    standardSelect.value,
+                    directionSelect.value,
+                );
 
                 await refreshSelection(
                     replaceStatus,
@@ -548,6 +587,12 @@ function replaceCells(standard, direction) {
             });
 
             standardSelect.addEventListener("change", async () => {
+                renderExample(
+                    example,
+                    standardSelect.value,
+                    directionSelect.value,
+                );
+
                 await refreshSelection(
                     replaceStatus,
                     selectedPreview,
