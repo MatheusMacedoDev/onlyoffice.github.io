@@ -157,7 +157,7 @@ function replaceCells(standard, direction) {
                         return target.toUpperCase();
                     }
 
-                    function transliterate(input,trie) {
+                    function transliterate(input, trie) {
                         var output = "";
                         var start = 0;
                         var cursor;
@@ -172,7 +172,11 @@ function replaceCells(standard, direction) {
                             lastMatchValue = null;
                             lastMatchLength = 0;
                             // Trie traversal naturally implements the longest match rule.
-                            for (cursor = start; cursor < input.length; cursor += 1) {
+                            for (
+                                cursor = start;
+                                cursor < input.length;
+                                cursor += 1
+                            ) {
                                 nextNode = node.children[input.charAt(cursor)];
 
                                 if (!nextNode) {
@@ -208,16 +212,13 @@ function replaceCells(standard, direction) {
                     var count = 0;
                     Api.GetSelection().ForEach(function (cell) {
                         var f = cell.GetFormula();
-                        if (
-                            typeof f === "string" &&
-                            f.charAt(0) === "="
-                        )
+                        if (typeof f === "string" && f.charAt(0) === "=")
                             return;
 
                         var v = cell.GetValue();
                         if (typeof v === "string" && v !== "") {
-                            cell.SetValue(transliterate(v,trie));
-                            count ++;
+                            cell.SetValue(transliterate(v, trie));
+                            count++;
                         }
                     });
 
@@ -253,6 +254,12 @@ function replaceCells(standard, direction) {
         { value: "iso9", label: "ISO 9" },
         { value: "elot743", label: "Greek (ELOT 743)" },
     ];
+
+    const buttons = {
+        replace: null,
+        copy: null,
+        refresh: null,
+    };
 
     const DIRECTION_TO_STANDARDS_MAPPING = {
         "cyrillic-to-latin": ["icao", "gost779b", "iso9"],
@@ -316,26 +323,44 @@ function replaceCells(standard, direction) {
             ? normalizedText.slice(0, -1)
             : normalizedText;
 
-        return textWithoutTrailingNewline
-            .split("\n")
-            .map(function (line) {
-                return Transliterator.transliterate(
-                    line,
-                    standard,
-                    DIRECTION_MAPPINGS[direction],
-                );
-            });
+        return textWithoutTrailingNewline.split("\n").map(function (line) {
+            return Transliterator.transliterate(
+                line,
+                standard,
+                DIRECTION_MAPPINGS[direction],
+            );
+        });
     }
 
-    function updateReplaceButton(replaceButton) {
-        replaceButton.disabled = busyReplacing || !sourceText;
+    function updateButtons() {
+        buttons.replace.disabled = busyReplacing || !sourceText;
+        buttons.copy.disabled = busyReplacing || !sourceText;
+        buttons.refresh.disabled = busyReplacing;
+    }
+
+    async function copyTransliteration(replaceStatus) {
+        const text = transliteratedLines.join("\n");
+        if (!text) return;
+
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                } catch (error) {
+                    throw new Error("Copy command was rejected");
+                }
+            }
+
+            replaceStatus.innerText = "Copied";
+        } catch (error) {
+            replaceStatus.innerText = "Could not copy to clipboard";
+        }
     }
 
     async function refreshSelection(
         replaceStatus,
         selectedPreview,
         transliteratedPreview,
-        replaceButton,
         standard,
         direction,
     ) {
@@ -358,11 +383,11 @@ function replaceCells(standard, direction) {
             transliteratedLines = [];
 
             replaceStatus.innerText = error.message;
-            updateReplaceButton(replaceButton);
+            updateButtons();
             return false;
         }
 
-        updateReplaceButton(replaceButton);
+        updateButtons();
         replaceStatus.innerText = "";
         return true;
     }
@@ -390,7 +415,6 @@ function replaceCells(standard, direction) {
                     replaceStatus,
                     selectedPreview,
                     transliteratedPreview,
-                    replaceButton,
                     standard,
                     direction,
                 );
@@ -437,7 +461,6 @@ function replaceCells(standard, direction) {
                 replaceStatus,
                 selectedPreview,
                 transliteratedPreview,
-                replaceButton,
                 standard,
                 direction,
             );
@@ -447,7 +470,7 @@ function replaceCells(standard, direction) {
             replaceStatus.innerText = error.message;
         } finally {
             busyReplacing = false;
-            updateReplaceButton(replaceButton);
+            updateButtons();
         }
     }
 
@@ -463,7 +486,13 @@ function replaceCells(standard, direction) {
             "transliterated-preview",
         );
         const replaceButton = document.getElementById("replace-button");
+        const copyButton = document.getElementById("copy-button");
+        const refreshButton = document.getElementById("refresh-button");
         const replaceStatus = document.getElementById("replace-status");
+
+        buttons.replace = replaceButton;
+        buttons.copy = copyButton;
+        buttons.refresh = refreshButton;
 
         try {
             await Transliterator.load();
@@ -480,7 +509,6 @@ function replaceCells(standard, direction) {
             replaceStatus,
             selectedPreview,
             transliteratedPreview,
-            replaceButton,
             standardSelect.value,
             directionSelect.value,
         );
@@ -498,7 +526,6 @@ function replaceCells(standard, direction) {
                     replaceStatus,
                     selectedPreview,
                     transliteratedPreview,
-                    replaceButton,
                     standardSelect.value,
                     directionSelect.value,
                 );
@@ -509,7 +536,20 @@ function replaceCells(standard, direction) {
                     replaceStatus,
                     selectedPreview,
                     transliteratedPreview,
-                    replaceButton,
+                    standardSelect.value,
+                    directionSelect.value,
+                );
+            });
+
+            copyButton.addEventListener("click", () =>
+                copyTransliteration(replaceStatus),
+            );
+
+            refreshButton.addEventListener("click", async () => {
+                await refreshSelection(
+                    replaceStatus,
+                    selectedPreview,
+                    transliteratedPreview,
                     standardSelect.value,
                     directionSelect.value,
                 );
@@ -518,13 +558,15 @@ function replaceCells(standard, direction) {
             replaceButton.addEventListener("click", () =>
                 replaceSelection(
                     replaceStatus,
-                    replaceButton,
+
                     selectedPreview,
                     transliteratedPreview,
                     standardSelect.value,
                     directionSelect.value,
                 ),
             );
+
+            isEventListenersAttached = true;
         }
     };
 })(window, undefined);
