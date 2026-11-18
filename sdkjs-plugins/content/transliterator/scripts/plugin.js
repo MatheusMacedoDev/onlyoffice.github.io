@@ -267,6 +267,12 @@ function replaceCells(standard, direction) {
         "greek-to-latin": ["elot743"],
     };
 
+    const NO_LETTERS_STATUS = {
+        "cyrillic-to-latin": "No Cyrillic letters found",
+        "latin-to-cyrillic": "No Latin letters found",
+        "greek-to-latin": "No Greek letters found",
+    };
+
     function renderStandards(select, selectedDirection) {
         const startSelectedStandard = select.value;
 
@@ -308,11 +314,11 @@ function replaceCells(standard, direction) {
     ) {
         selectedPreview.innerText = selectedText
             ? selectedText.slice(0, 500)
-            : "Select text";
+            : "Select text to transliterate";
 
         transliteratedPreview.innerText = selectedText
             ? transliteratedLines.join("\n").slice(0, 500)
-            : "Transliteration";
+            : "";
     }
 
     function transliterateLines(selectedText, standard, direction) {
@@ -364,6 +370,8 @@ function replaceCells(standard, direction) {
         standard,
         direction,
     ) {
+        replaceStatus.innerText = "Reading selection...";
+
         try {
             sourceText = (await getSourceText()) || "";
             transliteratedLines = transliterateLines(
@@ -383,12 +391,20 @@ function replaceCells(standard, direction) {
             transliteratedLines = [];
 
             replaceStatus.innerText = error.message;
-            updateButtons();
             return false;
+        } finally {
+            updateButtons();
         }
 
-        updateButtons();
-        replaceStatus.innerText = "";
+        const convertedText = transliteratedLines.join("\n");
+        const comparableSource = sourceText
+            .replace(/\r\n?/g, "\n")
+            .replace(/\n$/, "");
+
+        replaceStatus.innerText =
+            sourceText && convertedText === comparableSource
+                ? NO_LETTERS_STATUS[direction]
+                : "";
         return true;
     }
 
