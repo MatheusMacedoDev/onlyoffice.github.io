@@ -20,6 +20,7 @@ let sourceText = "";
 let transliteratedLines = [];
 let busyReplacing = false;
 let isEventListenersAttached = false;
+let cellCommandQueue = Promise.resolve();
 const DIRECTION_MAPPINGS = {
     "cyrillic-to-latin": "forward",
     "latin-to-cyrillic": "reverse",
@@ -47,36 +48,48 @@ async function getWordAndSlideSourceText() {
     });
 }
 
-async function getCellSourceText() {
-    return new Promise((resolve) => {
-        window.Asc.plugin.callCommand(
-            function () {
-                const selection = Api.GetSelection();
-                const values = [];
-
-                selection.ForEach((cell) => {
-                    const formula = cell.GetFormula();
-
-                    if (
-                        typeof formula === "string" &&
-                        formula.charAt(0) === "="
-                    )
-                        return;
-
-                    const value = cell.GetValue();
-                    if (typeof value === "string" && value.length > 0)
-                        values.push(value);
-                });
-
-                return values;
-            },
-            false,
-            false,
-            function (values) {
-                return resolve(Array.isArray(values) ? values.join("\n") : "");
-            },
-        );
+function runCellCommand(command, isCalc) {
+    const result = cellCommandQueue.then(function () {
+        return new Promise(function (resolve, reject) {
+            try {
+                window.Asc.plugin.callCommand(
+                    command,
+                    false,
+                    isCalc,
+                    function (value) {
+                        resolve(value);
+                    },
+                );
+            } catch (error) {
+                reject(error);
+            }
+        });
     });
+
+    cellCommandQueue = result.catch(function () {});
+    return result;
+}
+
+async function getCellSourceText() {
+    const values = await runCellCommand(function () {
+        const selection = Api.GetSelection();
+        const values = [];
+
+        selection.ForEach((cell) => {
+            const formula = cell.GetFormula();
+
+            if (typeof formula === "string" && formula.charAt(0) === "=")
+                return;
+
+            const value = cell.GetValue();
+            if (typeof value === "string" && value.length > 0)
+                values.push(value);
+        });
+
+        return values;
+    }, false);
+
+    return Array.isArray(values) ? values.join("\n") : "";
 }
 
 async function getSourceText() {
@@ -101,147 +114,113 @@ function replaceCells(standard, direction) {
         );
     }
 
-    // Store the computed trie in a global variable so that it can be accessed by callCommand
     window.Asc.scope.rules = trie;
 
-    return new Promise(function (resolve, reject) {
-        try {
-            window.Asc.plugin.callCommand(
-                function () {
-                    var trie = Asc.scope.rules;
+    return runCellCommand(function () {
+        var trie = Asc.scope.rules;
 
-                    function isUpperCaseValue(value) {
-                        return (
-                            value.toUpperCase() === value &&
-                            value.toLowerCase() !== value
-                        );
-                    }
-
-                    function isLowerCaseValue(value) {
-                        return (
-                            value.toLowerCase() === value &&
-                            value.toUpperCase() !== value
-                        );
-                    }
-
-                    function capitalizeFirstLetter(value) {
-                        if (!value) return value;
-                        return (
-                            value.charAt(0).toUpperCase() +
-                            value.slice(1).toLowerCase()
-                        );
-                    }
-
-                    // Handles capitalization rules,
-                    // examples: "Щ" -> "Shch", "Ща" -> "Sha", "ЩА" -> "SHA"
-                    function applyMatchCase(source, target, nextSourceChar) {
-                        if (!source || !target) return target;
-
-                        if (source.length > 1) {
-                            if (isUpperCaseValue(source))
-                                return target.toUpperCase();
-                            if (isLowerCaseValue(source))
-                                return target.toLowerCase();
-                            return target;
-                        }
-
-                        if (!isUpperCaseValue(source)) return target;
-
-                        if (
-                            target.length > 1 &&
-                            nextSourceChar &&
-                            isLowerCaseValue(nextSourceChar)
-                        )
-                            return capitalizeFirstLetter(target);
-
-                        return target.toUpperCase();
-                    }
-
-                    function transliterate(input, trie) {
-                        var output = "";
-                        var start = 0;
-                        var cursor;
-                        var node;
-                        var nextNode;
-                        var lastMatchValue;
-                        var lastMatchLength;
-
-                        while (start < input.length) {
-                            // Restart at the root for each unprocessed character.
-                            node = trie;
-                            lastMatchValue = null;
-                            lastMatchLength = 0;
-                            // Trie traversal naturally implements the longest match rule.
-                            for (
-                                cursor = start;
-                                cursor < input.length;
-                                cursor += 1
-                            ) {
-                                nextNode = node.children[input.charAt(cursor)];
-
-                                if (!nextNode) {
-                                    break;
-                                }
-
-                                node = nextNode;
-
-                                if (node.value !== null) {
-                                    lastMatchValue = node.value;
-                                    lastMatchLength = cursor - start + 1;
-                                }
-                            }
-
-                            if (lastMatchLength > 0) {
-                                // Handle case matching for the transliterated value based on the input segment.
-                                output += applyMatchCase(
-                                    input.slice(start, start + lastMatchLength),
-                                    lastMatchValue,
-                                    input.charAt(start + lastMatchLength),
-                                );
-                                start += lastMatchLength;
-                            } else {
-                                // No match found, preserve the original character.
-                                output += input.charAt(start);
-                                start += 1;
-                            }
-                        }
-
-                        return output;
-                    }
-
-                    var count = 0;
-                    Api.GetSelection().ForEach(function (cell) {
-                        var f = cell.GetFormula();
-                        if (typeof f === "string" && f.charAt(0) === "=")
-                            return;
-
-                        var v = cell.GetValue();
-                        if (typeof v === "string" && v !== "") {
-                            cell.SetValue(transliterate(v, trie));
-                            count++;
-                        }
-                    });
-
-                    return count;
-                },
-                false,
-                true,
-                function (count) {
-                    if (typeof count !== "number") {
-                        reject(
-                            new Error(
-                                "Could not retrieve the converted cell count",
-                            ),
-                        );
-                        return;
-                    }
-
-                    resolve(count);
-                },
+        function isUpperCaseValue(value) {
+            return (
+                value.toUpperCase() === value && value.toLowerCase() !== value
             );
-        } catch (error) {
-            reject(error);
         }
+
+        function isLowerCaseValue(value) {
+            return (
+                value.toLowerCase() === value && value.toUpperCase() !== value
+            );
+        }
+
+        function capitalizeFirstLetter(value) {
+            if (!value) return value;
+            return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+        }
+
+        function applyMatchCase(source, target, nextSourceChar) {
+            if (!source || !target) return target;
+
+            if (source.length > 1) {
+                if (isUpperCaseValue(source)) return target.toUpperCase();
+                if (isLowerCaseValue(source)) return target.toLowerCase();
+                return target;
+            }
+
+            if (!isUpperCaseValue(source)) return target;
+
+            if (
+                target.length > 1 &&
+                nextSourceChar &&
+                isLowerCaseValue(nextSourceChar)
+            )
+                return capitalizeFirstLetter(target);
+
+            return target.toUpperCase();
+        }
+
+        function transliterate(input, trie) {
+            var output = "";
+            var start = 0;
+            var cursor;
+            var node;
+            var nextNode;
+            var lastMatchValue;
+            var lastMatchLength;
+
+            while (start < input.length) {
+                node = trie;
+                lastMatchValue = null;
+                lastMatchLength = 0;
+
+                for (cursor = start; cursor < input.length; cursor += 1) {
+                    nextNode = node.children[input.charAt(cursor)];
+
+                    if (!nextNode) {
+                        break;
+                    }
+
+                    node = nextNode;
+
+                    if (node.value !== null) {
+                        lastMatchValue = node.value;
+                        lastMatchLength = cursor - start + 1;
+                    }
+                }
+
+                if (lastMatchLength > 0) {
+                    output += applyMatchCase(
+                        input.slice(start, start + lastMatchLength),
+                        lastMatchValue,
+                        input.charAt(start + lastMatchLength),
+                    );
+                    start += lastMatchLength;
+                } else {
+                    output += input.charAt(start);
+                    start += 1;
+                }
+            }
+
+            return output;
+        }
+
+        var count = 0;
+        Api.GetSelection().ForEach(function (cell) {
+            var f = cell.GetFormula();
+            if (typeof f === "string" && f.charAt(0) === "=") return;
+
+            var v = cell.GetValue();
+            if (typeof v === "string" && v !== "") {
+                cell.SetValue(transliterate(v, trie));
+                count++;
+            }
+        });
+
+        return count;
+    }, true).then(function (count) {
+        if (typeof count !== "number") {
+            throw new Error("Could not retrieve the converted cell count");
+        }
+
+        return count;
     });
 }
 
@@ -442,7 +421,6 @@ function replaceCells(standard, direction) {
 
     async function replaceSelection(
         replaceStatus,
-        replaceButton,
         selectedPreview,
         transliteratedPreview,
         standard,
@@ -451,24 +429,18 @@ function replaceCells(standard, direction) {
         if (busyReplacing || !sourceText) return;
 
         busyReplacing = true;
-        replaceButton.disabled = true;
+        updateButtons();
         replaceStatus.innerText = "Replacing...";
 
         try {
             if (window.Asc.plugin.info.editorType === "cell") {
-                const convertedText = transliteratedLines.join("\n");
                 const count = await replaceCells(standard, direction);
 
-                const selectionRefreshed = await refreshSelection(
-                    replaceStatus,
-                    selectedPreview,
-                    transliteratedPreview,
-                    standard,
-                    direction,
-                );
-
-                if (count > 0 && !sourceText) {
-                    sourceText = convertedText;
+                // Update the preview from the converted result instead of
+                // issuing another callCommand while the editor finishes the
+                // write.
+                if (count > 0) {
+                    sourceText = transliteratedLines.join("\n");
                     transliteratedLines = transliterateLines(
                         sourceText,
                         standard,
@@ -482,11 +454,8 @@ function replaceCells(standard, direction) {
                     );
                 }
 
-                const replacementStatus =
+                replaceStatus.innerText =
                     "Replaced " + count + (count === 1 ? " cell" : " cells");
-                replaceStatus.innerText = selectionRefreshed
-                    ? replacementStatus
-                    : replacementStatus + ". " + replaceStatus.innerText;
                 return;
             }
 
@@ -555,13 +524,15 @@ function replaceCells(standard, direction) {
         renderLabels(selectedLabel, transliteratedLabel, directionSelect.value);
         renderExample(example, standardSelect.value, directionSelect.value);
 
-        await refreshSelection(
-            replaceStatus,
-            selectedPreview,
-            transliteratedPreview,
-            standardSelect.value,
-            directionSelect.value,
-        );
+        if (!busyReplacing) {
+            await refreshSelection(
+                replaceStatus,
+                selectedPreview,
+                transliteratedPreview,
+                standardSelect.value,
+                directionSelect.value,
+            );
+        }
 
         if (!isEventListenersAttached) {
             directionSelect.addEventListener("change", async () => {
@@ -619,7 +590,6 @@ function replaceCells(standard, direction) {
             replaceButton.addEventListener("click", () =>
                 replaceSelection(
                     replaceStatus,
-
                     selectedPreview,
                     transliteratedPreview,
                     standardSelect.value,
