@@ -209,8 +209,12 @@ function replaceCells(standard, direction) {
 
             var v = cell.GetValue();
             if (typeof v === "string" && v !== "") {
-                cell.SetValue(transliterate(v, trie));
-                count++;
+                var converted = transliterate(v, trie);
+
+                if (converted !== v) {
+                    cell.SetValue(converted);
+                    count++;
+                }
             }
         });
 
