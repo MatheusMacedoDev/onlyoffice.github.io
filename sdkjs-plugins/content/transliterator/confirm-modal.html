@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Transliterator</title>
+        <script
+            type="text/javascript"
+            src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.js"
+        ></script>
+        <script
+            type="text/javascript"
+            src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins-ui.js"
+        ></script>
+        <link
+            rel="stylesheet"
+            href="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.css"
+        />
+        <style>
+            body {
+                height: 90vh;
+            }
+
+            body {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+
+            #message {
+                font-size: 12px;
+                line-height: 14px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="message"></div>
+        <script type="text/javascript">
+            window.Asc.plugin.init = function () {};
+
+            const count = new URLSearchParams(window.location.search).get(
+                "count",
+            );
+
+            document.getElementById("message").innerText =
+                "This will change " + count + " cells. Continue?";
+        </script>
+    </body>
+</html>

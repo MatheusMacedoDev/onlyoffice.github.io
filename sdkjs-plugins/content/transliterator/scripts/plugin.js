@@ -21,6 +21,8 @@ let transliteratedLines = [];
 let busyReplacing = false;
 let isEventListenersAttached = false;
 let cellCommandQueue = Promise.resolve();
+
+const LARGE_RANGE_CELL_LIMIT = 20000;
 const DIRECTION_MAPPINGS = {
     "cyrillic-to-latin": "forward",
     "latin-to-cyrillic": "reverse",
@@ -90,6 +92,62 @@ async function getCellSourceText() {
     }, false);
 
     return Array.isArray(values) ? values.join("\n") : "";
+}
+
+async function getCellSelectionCount() {
+    const count = await runCellCommand(function () {
+        return Api.GetSelection().GetCount();
+    }, false);
+
+    return typeof count === "number" ? count : 0;
+}
+
+function getPluginFileUrl(fileName) {
+    const location = window.location;
+    const start = location.pathname.lastIndexOf("/") + 1;
+    const currentFile = location.pathname.slice(start);
+
+    return location.href.replace(currentFile, fileName);
+}
+
+function getConfirmUrl(cellCount) {
+    const url = new URL(getPluginFileUrl("confirm-modal.html"));
+
+    url.searchParams.set("count", cellCount);
+    return url.toString();
+}
+
+function confirmLargeRange(cellCount) {
+    return new Promise(function (resolve) {
+        const modal = new window.Asc.PluginWindow();
+        const previousButton = window.Asc.plugin.button;
+
+        window.Asc.plugin.button = function (id, windowId) {
+            if (windowId === modal.id) {
+                window.Asc.plugin.button = previousButton;
+                modal.close();
+                resolve(id === 0);
+                return;
+            }
+
+            if (previousButton) {
+                previousButton.call(window.Asc.plugin, id, windowId);
+            }
+        };
+
+        modal.show({
+            url: getConfirmUrl(cellCount),
+            description: window.Asc.plugin.tr("Warning"),
+            isVisual: true,
+            isModal: true,
+            EditorsSupport: ["cell"],
+            size: [380, 120],
+            buttons: [
+                { text: window.Asc.plugin.tr("Continue"), primary: true },
+                { text: window.Asc.plugin.tr("Cancel"), primary: false },
+            ],
+        });
+    });
 }
 
 async function getSourceText() {
@@ -438,11 +496,20 @@ function replaceCells(standard, direction) {
 
         try {
             if (window.Asc.plugin.info.editorType === "cell") {
+                const selectedCellCount = await getCellSelectionCount();
+
+                if (selectedCellCount > LARGE_RANGE_CELL_LIMIT) {
+                    const shouldContinue =
+                        await confirmLargeRange(selectedCellCount);
+
+                    if (!shouldContinue) {
+                        replaceStatus.innerText = "Replacement canceled";
+                        return;
+                    }
+                }
+
                 const count = await replaceCells(standard, direction);
 
-                // Update the preview from the converted result instead of
-                // issuing another callCommand while the editor finishes the
-                // write.
                 if (count > 0) {
                     sourceText = transliteratedLines.join("\n");
                     transliteratedLines = transliterateLines(
