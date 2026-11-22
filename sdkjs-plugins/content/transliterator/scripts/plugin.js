@@ -616,6 +616,42 @@ function replaceCells(standard, direction) {
         }
 
         if (!isEventListenersAttached) {
+            window.Asc.plugin.attachEvent("onContextMenuShow", (options) => {
+                if (!options || options.type !== "Selection") return;
+
+                window.Asc.plugin.executeMethod("AddContextMenuItem", [
+                    {
+                        guid: window.Asc.plugin.guid,
+                        items: [
+                            { id: "transliterateSelection", text: "Transliterate" },
+                        ],
+                    },
+                ]);
+            });
+
+            window.Asc.plugin.attachContextMenuClickEvent(
+                "transliterateSelection",
+                async () => {
+                    const isSelectionRead = await refreshSelection(
+                        replaceStatus,
+                        selectedPreview,
+                        transliteratedPreview,
+                        standardSelect.value,
+                        directionSelect.value,
+                    );
+
+                    if (isSelectionRead) {
+                        await replaceSelection(
+                            replaceStatus,
+                            selectedPreview,
+                            transliteratedPreview,
+                            standardSelect.value,
+                            directionSelect.value,
+                        );
+                    }
+                },
+            );
+
             directionSelect.addEventListener("change", async () => {
                 renderStandards(standardSelect, directionSelect.value);
                 renderLabels(

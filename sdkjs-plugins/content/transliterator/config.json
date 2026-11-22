@@ -14,7 +14,8 @@
             "initDataType"        : "text",
             "initData"            : "",
             "initOnSelectionChanged": true,
-            "buttons"             : []
+            "buttons"             : [],
+            "events"              : ["onContextMenuShow", "onContextMenuClick"]
         }
     ]
 }
