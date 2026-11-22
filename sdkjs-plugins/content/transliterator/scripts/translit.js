@@ -68,6 +68,14 @@
 			if (source.length > 1 && source.toUpperCase() !== source) {
 				insertIntoTrie(root, source.toUpperCase(), target);
 			}
+
+			if (source.length > 1) {
+				var titleCaseSource = source.charAt(0).toUpperCase() + source.slice(1).toLowerCase();
+
+				if (titleCaseSource !== source && titleCaseSource !== source.toUpperCase()) {
+					insertIntoTrie(root, titleCaseSource, target);
+				}
+			}
 		}
 
 		return root;
@@ -111,11 +119,13 @@
 				var matchedValue = lastMatchValue;
 
                 // Handle case matching for the transliterated value based on the input segment.
-				output += applyMatchCase(
+				var matchedOutput = applyMatchCase(
 					input.slice(start, start + lastMatchLength),
 					matchedValue,
 					input.charAt(start + lastMatchLength)
 				);
+
+				output += matchedOutput;
 				start += lastMatchLength;
 			} else {
                 // No match found, preserve the original character.
@@ -158,6 +168,10 @@
 
 			if (isLowerCaseValue(sourceSegment)) {
 				return transliteratedValue.toLowerCase();
+			}
+
+			if (isUpperCaseValue(sourceSegment.charAt(0)) && isLowerCaseValue(sourceSegment.slice(1))) {
+				return capitalizeFirstLetter(transliteratedValue);
 			}
 
 			return transliteratedValue;
@@ -255,6 +269,10 @@
 
 			if (!trie) {
 				throw new Error("Unknown transliteration direction: " + tableName + "/" + direction);
+			}
+
+			if (tableName === "elot743" && direction === "forward") {
+				input = input.normalize("NFC");
 			}
 
 			return transliterateWithTrie(input, trie);

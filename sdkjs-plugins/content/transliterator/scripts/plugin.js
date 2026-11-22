@@ -173,9 +173,13 @@ function replaceCells(standard, direction) {
     }
 
     window.Asc.scope.rules = trie;
+    window.Asc.scope.normalizeInput =
+        standard === "elot743" &&
+        DIRECTION_MAPPINGS[direction] === "forward";
 
     return runCellCommand(function () {
         var trie = Asc.scope.rules;
+        var normalizeInput = Asc.scope.normalizeInput;
 
         function isUpperCaseValue(value) {
             return (
@@ -200,6 +204,11 @@ function replaceCells(standard, direction) {
             if (source.length > 1) {
                 if (isUpperCaseValue(source)) return target.toUpperCase();
                 if (isLowerCaseValue(source)) return target.toLowerCase();
+                if (
+                    isUpperCaseValue(source.charAt(0)) &&
+                    isLowerCaseValue(source.slice(1))
+                )
+                    return capitalizeFirstLetter(target);
                 return target;
             }
 
@@ -267,7 +276,8 @@ function replaceCells(standard, direction) {
 
             var v = cell.GetValue();
             if (typeof v === "string" && v !== "") {
-                var converted = transliterate(v, trie);
+                var input = normalizeInput ? v.normalize("NFC") : v;
+                var converted = transliterate(input, trie);
 
                 if (converted !== v) {
                     cell.SetValue(converted);

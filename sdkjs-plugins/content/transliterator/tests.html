@@ -150,9 +150,21 @@
             ["ICAO Russian pangram", "icao", "Съешь же ещё этих мягких французских булок да выпей чаю.", "Sieesh zhe eshche etikh miagkikh frantsuzskikh bulok da vypei chaiu."],
             ["GOST Russian pangram", "gost779b", "Съешь же ещё этих мягких французских булок да выпей чаю.", "S``esh` zhe eshhyo e`tix myagkix franczuzskix bulok da vy`pej chayu."],
             ["ISO 9 Russian pangram", "iso9", "Съешь же ещё этих мягких французских булок да выпей чаю.", "Sʺešʹ že eŝë ètih mâgkih francuzskih bulok da vypej čaû."],
-            ["ELOT Greek pangram", "elot743", "διαφυλάξτε γενικά τη ζωή σας από βαθειά ψυχικά τραύματα", "diafylάxte genikά ti zoή sas apό vatheiά psychikά traύmata"]
+            ["ELOT Greek accented pangram", "elot743", "διαφυλάξτε γενικά τη ζωή σας από βαθειά ψυχικά τραύματα", "diafyláxte geniká ti zoí sas apó vatheiá psychiká trávmata"]
         ].forEach(function(testCase) {
             addTest(testCase[0], testCase[1], "forward", testCase[2], testCase[3]);
+        });
+
+        [
+            ["ELOT Greek tonos vowels lowercase", "ά έ ή ί ό ύ ώ", "á é í í ó ý ó"],
+            ["ELOT Greek tonos vowels uppercase", "Ά Έ Ή Ί Ό Ύ Ώ", "Á É Í Í Ó Ý Ó"],
+            ["ELOT Greek diaeresis and tonos", "ϊ Ϊ ϋ Ϋ ΐ ΰ", "ï Ï ÿ Ÿ ḯ ÿ\u0301"],
+            ["ELOT Greek composed and decomposed accents", "ά α\u0301 ΐ ι\u0308\u0301", "á á ḯ ḯ"],
+            ["ELOT Greek accented diphthongs", "αύριο | άυριο | ευχή | ηύρα", "ávrio | áyrio | efchí | ívra"],
+            ["ELOT Greek uppercase and title-case accents", "ΑΎΡΙΟ | Αύριο | αΰ", "ÁVRIO | Ávrio | aÿ\u0301"],
+            ["ELOT Greek polytonic vowels", "ἄ ἔ ὴ ἴ ὄ ὔ ὦ", "á é í í ó ý ó"]
+        ].forEach(function(testCase) {
+            addTest(testCase[0], "elot743", "forward", testCase[1], testCase[2]);
         });
 
         for (familyIndex = 0; familyIndex < diphthongFamilies.length; familyIndex += 1) {
@@ -165,22 +177,22 @@
         }
         var greekForwardByInput = Object.create(null);
         var greekForwardInputs = [];
-        GREEK_COMPOUNDS.forEach(function(pair) {
-            greekForwardInputs.push(pair[0]);
-            greekForwardByInput[pair[0]] = pair[1];
-        });
-        GREEK_DIPHTHONGS.forEach(function(pair) {
-            if (!Object.prototype.hasOwnProperty.call(greekForwardByInput, pair[1])) {
-                greekForwardInputs.push(pair[1]);
+        GREEK_COMPOUNDS.concat(GREEK_DIPHTHONGS).forEach(function(pair) {
+            if (!Object.prototype.hasOwnProperty.call(greekForwardByInput, pair[0])) {
+                greekForwardInputs.push(pair[0]);
             }
-            greekForwardByInput[pair[1]] = pair[0];
+            greekForwardByInput[pair[0]] = pair[1];
         });
         var greekForwardCompoundCases = greekForwardInputs.map(function(input) {
             return [input, greekForwardByInput[input]];
         });
-        var greekReverseCompoundCases = GREEK_COMPOUNDS.map(function(pair) {
-            return [pair[1], pair[0]];
-        }).concat(GREEK_DIPHTHONGS);
+        var greekReverseByInput = Object.create(null);
+        GREEK_COMPOUNDS.concat(GREEK_DIPHTHONGS).forEach(function(pair) {
+            greekReverseByInput[pair[1]] = pair[0];
+        });
+        var greekReverseCompoundCases = Object.keys(greekReverseByInput).map(function(input) {
+            return [input, greekReverseByInput[input]];
+        });
         addTest("ELOT Greek compound mappings forward", "elot743", "forward",
             greekForwardCompoundCases.map(function(pair) { return pair[0]; }).join(" | "),
             greekForwardCompoundCases.map(function(pair) { return pair[1]; }).join(" | "));
