@@ -29,6 +29,27 @@ const DIRECTION_MAPPINGS = {
     "greek-to-latin": "forward",
 };
 
+const CHOICES_KEY = "transliterator.choices";
+
+function getChoices() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(CHOICES_KEY) || "{}");
+
+        return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (error) {
+        return {};
+    }
+}
+
+function saveChoices(direction, standard) {
+    try {
+        localStorage.setItem(
+            CHOICES_KEY,
+            JSON.stringify({ direction, standard }),
+        );
+    } catch (error) {}
+}
+
 async function getWordAndSlideSourceText() {
     return new Promise((resolve) => {
         window.Asc.plugin.executeMethod(
@@ -174,8 +195,7 @@ function replaceCells(standard, direction) {
 
     window.Asc.scope.rules = trie;
     window.Asc.scope.normalizeInput =
-        standard === "elot743" &&
-        DIRECTION_MAPPINGS[direction] === "forward";
+        standard === "elot743" && DIRECTION_MAPPINGS[direction] === "forward";
 
     return runCellCommand(function () {
         var trie = Asc.scope.rules;
@@ -317,6 +337,7 @@ function replaceCells(standard, direction) {
         "latin-to-cyrillic": ["gost779b", "iso9"],
         "greek-to-latin": ["elot743"],
     };
+    const SUPPORTED_DIRECTIONS = Object.keys(DIRECTION_TO_STANDARDS_MAPPING);
 
     const NO_LETTERS_STATUS = {
         "cyrillic-to-latin": "No Cyrillic letters found",
@@ -601,7 +622,22 @@ function replaceCells(standard, direction) {
             return;
         }
 
+        const savedChoices = getChoices();
+
+        if (SUPPORTED_DIRECTIONS.includes(savedChoices.direction)) {
+            directionSelect.value = savedChoices.direction;
+        }
+
         renderStandards(standardSelect, directionSelect.value);
+
+        if (
+            DIRECTION_TO_STANDARDS_MAPPING[directionSelect.value].includes(
+                savedChoices.standard,
+            )
+        ) {
+            standardSelect.value = savedChoices.standard;
+        }
+
         renderLabels(selectedLabel, transliteratedLabel, directionSelect.value);
         renderExample(example, standardSelect.value, directionSelect.value);
 
@@ -623,7 +659,10 @@ function replaceCells(standard, direction) {
                     {
                         guid: window.Asc.plugin.guid,
                         items: [
-                            { id: "transliterateSelection", text: "Transliterate" },
+                            {
+                                id: "transliterateSelection",
+                                text: "Transliterate",
+                            },
                         ],
                     },
                 ]);
@@ -664,6 +703,7 @@ function replaceCells(standard, direction) {
                     standardSelect.value,
                     directionSelect.value,
                 );
+                saveChoices(directionSelect.value, standardSelect.value);
 
                 await refreshSelection(
                     replaceStatus,
@@ -680,6 +720,7 @@ function replaceCells(standard, direction) {
                     standardSelect.value,
                     directionSelect.value,
                 );
+                saveChoices(directionSelect.value, standardSelect.value);
 
                 await refreshSelection(
                     replaceStatus,
