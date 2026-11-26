@@ -5,19 +5,19 @@
         "pt-BR": "Transliterador"
     },
     "guid"       : "asc.{aaffc8aa-8e37-4fc6-aebf-6d2704788148}",
-    "version": "1.0.0",
+    "version": "0.0.1",
     "variations" : [
         {
             "description"         : "transliterator",
             "url"                 : "index.html",
-            "icons"               : ["resources/img/translit.png", "resources/img/translit@2x.png"],
+            "icons"               : ["resources/img/icon.png", "resources/img/icon@2x.png"],
             "icons2": [
 			{
-				"100%": { "normal": "resources/img/translit.png" },
-				"125%": { "normal": "resources/img/translit@1.25x.png" },
-				"150%": { "normal": "resources/img/translit@1.5x.png" },
-				"175%": { "normal": "resources/img/translit@1.75x.png" },
-				"200%": { "normal": "resources/img/translit@2x.png" }
+				"100%": { "normal": "resources/img/icon.png" },
+				"125%": { "normal": "resources/img/icon@1.25x.png" },
+				"150%": { "normal": "resources/img/icon@1.5x.png" },
+				"175%": { "normal": "resources/img/icon@1.75x.png" },
+				"200%": { "normal": "resources/img/icon@2x.png" }
 			}
 			],
             "isViewer"            : false,
@@ -38,8 +38,7 @@
                 "icons"       : {
                     "light" : "resources/img/",
                     "dark"  : "resources/img/"
-                },
-                "categories": ["specAbilities", "work"]
+                }
             }
         }
     ]
