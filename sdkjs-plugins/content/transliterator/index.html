@@ -18,7 +18,7 @@
 <html>
     <head>
         <meta charset="UTF-8" />
-        <title>Hello world</title>
+        <title class="i18n">Transliterator</title>
         <script
             type="text/javascript"
             src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.js"
@@ -37,28 +37,46 @@
     </head>
     <body>
         <div class="select-container">
-            <label for="direction">Direction</label>
+            <label for="direction" class="i18n">
+                Direction
+            </label>
             <select id="direction">
-                <option value="cyrillic-to-latin">Cyrillic → Latin</option>
-                <option value="latin-to-cyrillic">Latin → Cyrillic</option>
-                <option value="greek-to-latin">Greek → Latin</option>
+                <option
+                    value="cyrillic-to-latin"
+                    class="i18n"
+                >
+                    Cyrillic → Latin
+                </option>
+                <option
+                    value="latin-to-cyrillic"
+                    class="i18n"
+                >
+                    Latin → Cyrillic
+                </option>
+                <option
+                    value="greek-to-latin"
+                    class="i18n"
+                >
+                    Greek → Latin
+                </option>
             </select>
         </div>
 
         <div class="select-container">
-            <label for="standard">Standard</label>
+            <label for="standard" class="i18n">
+                Standard
+            </label>
             <select id="standard"></select>
         </div>
 
         <p id="example">Example: Щукин → Shchukin</p>
 
         <div class="preview-container">
-            <h3>Preview</h3>
+            <h3 class="i18n">Preview</h3>
             <div class="preview-wrapper">
                 <div>
                     <h4 id="selected-label">Cyrillic</h4>
-                    <pre id="selected-preview">
-Select text to transliterate</pre>
+                    <pre id="selected-preview">Select text to transliterate</pre>
                 </div>
                 <div>
                     <h4 id="transliterated-label">Latin</h4>
@@ -75,7 +93,9 @@ Select text to transliterate</pre>
                 type="button"
                 disabled
             >
-                Refresh preview
+                <span class="i18n">
+                    Refresh preview
+                </span>
             </button>
 
             <button
@@ -84,7 +104,7 @@ Select text to transliterate</pre>
                 type="button"
                 disabled
             >
-                Copy
+                <span class="i18n">Copy</span>
             </button>
 
             <button
@@ -93,7 +113,9 @@ Select text to transliterate</pre>
                 type="button"
                 disabled
             >
-                Replace selection
+                <span class="i18n">
+                    Replace selection
+                </span>
             </button>
         </div>
         <p id="replace-status"></p>

@@ -35,14 +35,28 @@
     <body>
         <div id="message"></div>
         <script type="text/javascript">
-            window.Asc.plugin.init = function () {};
+            function renderMessage() {
+                const count = new URLSearchParams(window.location.search).get(
+                    "count",
+                );
+                const plugin = window.Asc && window.Asc.plugin;
+                const key = "This will change {count} cells. Continue?";
+                const translated =
+                    plugin && typeof plugin.tr === "function"
+                        ? plugin.tr(key)
+                        : "";
+                const message =
+                    typeof translated === "string" && translated
+                        ? translated
+                        : key;
 
-            const count = new URLSearchParams(window.location.search).get(
-                "count",
-            );
+                document.getElementById("message").innerText = message
+                    .split("{count}")
+                    .join(String(count));
+            }
 
-            document.getElementById("message").innerText =
-                "This will change " + count + " cells. Continue?";
+            window.Asc.plugin.init = renderMessage;
+            window.Asc.plugin.onTranslate = renderMessage;
         </script>
     </body>
 </html>

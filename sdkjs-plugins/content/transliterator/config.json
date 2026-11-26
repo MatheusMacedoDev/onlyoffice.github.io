@@ -1,5 +1,9 @@
 {
     "name"       : "Transliterator",
+    "nameLocale": {
+        "ru": "Транслитератор",
+        "pt-BR": "Transliterador"
+    },
     "guid"       : "asc.{aaffc8aa-8e37-4fc6-aebf-6d2704788148}",
     "version": "1.0.0",
     "variations" : [
@@ -24,7 +28,19 @@
             "initData"            : "",
             "initOnSelectionChanged": true,
             "buttons"             : [],
-            "events"              : ["onContextMenuShow", "onContextMenuClick"]
+            "events"              : ["onContextMenuShow", "onContextMenuClick"],
+            "store": {
+                "screenshots" : [
+                    "resources/store/screenshots/screen_1.png",
+					"resources/store/screenshots/screen_2.png",
+					"resources/store/screenshots/screen_3.png"
+                ],
+                "icons"       : {
+                    "light" : "resources/store/icons",
+                    "dark"  : "resources/store/icons"
+                },
+                "categories": ["specAbilities", "work"]
+            }
         }
     ]
 }

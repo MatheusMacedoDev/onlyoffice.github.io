@@ -31,6 +31,26 @@ const DIRECTION_MAPPINGS = {
 
 const CHOICES_KEY = "transliterator.choices";
 
+function getMessage(key, replacements) {
+    const plugin = window.Asc && window.Asc.plugin;
+    const translated = plugin && typeof plugin.tr === "function"
+        ? plugin.tr(key)
+        : "";
+    let message = typeof translated === "string" && translated
+        ? translated
+        : key;
+
+    if (replacements) {
+        Object.keys(replacements).forEach(function (name) {
+            message = message
+                .split("{" + name + "}")
+                .join(String(replacements[name]));
+        });
+    }
+
+    return message;
+}
+
 function getChoices() {
     try {
         const parsed = JSON.parse(localStorage.getItem(CHOICES_KEY) || "{}");
@@ -345,6 +365,21 @@ function replaceCells(standard, direction) {
         "greek-to-latin": "No Greek letters found",
     };
 
+    const DIRECTION_LABELS = {
+        "cyrillic-to-latin": ["Cyrillic", "Latin"],
+        "latin-to-cyrillic": ["Latin", "Cyrillic"],
+        "greek-to-latin": ["Greek", "Latin"],
+    };
+
+    function translateStaticText() {
+        const elements = document.querySelectorAll(".i18n");
+
+        elements.forEach(function (element) {
+            const key = element.textContent.trim();
+            if (key) element.textContent = getMessage(key);
+        });
+    }
+
     const EXAMPLE_SOURCES = {
         "cyrillic-to-latin": {
             icao: "Щукин",
@@ -367,7 +402,9 @@ function replaceCells(standard, direction) {
             return DIRECTION_TO_STANDARDS_MAPPING[selectedDirection].includes(
                 option.value,
             );
-        }).map((standard) => new Option(standard.label, standard.value));
+        }).map((standard) =>
+            new Option(getMessage(standard.label), standard.value),
+        );
 
         select.replaceChildren(...newOptions);
 
@@ -380,17 +417,10 @@ function replaceCells(standard, direction) {
             : newOptions[0].value;
     }
 
-    function directionToLabelArray(direction) {
-        return direction
-            .replace("-to-", "-")
-            .split("-")
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1));
-    }
-
     function renderLabels(selectedLabel, transliteratedLabel, direction) {
-        const labelArray = directionToLabelArray(direction);
-        selectedLabel.innerText = labelArray[0];
-        transliteratedLabel.innerText = labelArray[1];
+        const labels = DIRECTION_LABELS[direction];
+        selectedLabel.innerText = getMessage(labels[0]);
+        transliteratedLabel.innerText = getMessage(labels[1]);
     }
 
     function renderExample(example, standard, direction) {
@@ -407,7 +437,10 @@ function replaceCells(standard, direction) {
             standard,
             DIRECTION_MAPPINGS[direction],
         );
-        example.innerText = "Example: " + source + " → " + converted;
+        example.innerText = getMessage("Example: {source} → {result}", {
+            source: source,
+            result: converted,
+        });
     }
 
     function renderPreviewTexts(
@@ -418,11 +451,11 @@ function replaceCells(standard, direction) {
     ) {
         selectedPreview.innerText = selectedText
             ? selectedText.slice(0, 500)
-            : "Select text to transliterate";
+            : getMessage("Select text to transliterate");
 
         transliteratedPreview.innerText = selectedText
             ? transliteratedLines.join("\n").slice(0, 500)
-            : "Transliteration";
+            : getMessage("Transliteration");
     }
 
     function transliterateLines(selectedText, standard, direction) {
@@ -461,9 +494,9 @@ function replaceCells(standard, direction) {
                 }
             }
 
-            replaceStatus.innerText = "Copied";
+            replaceStatus.innerText = getMessage("Copied");
         } catch (error) {
-            replaceStatus.innerText = "Could not copy to clipboard";
+            replaceStatus.innerText = getMessage("Could not copy to clipboard");
         }
     }
 
@@ -474,7 +507,7 @@ function replaceCells(standard, direction) {
         standard,
         direction,
     ) {
-        replaceStatus.innerText = "Reading selection...";
+        replaceStatus.innerText = getMessage("Reading selection...");
 
         try {
             sourceText = (await getSourceText()) || "";
@@ -494,7 +527,7 @@ function replaceCells(standard, direction) {
             sourceText = "";
             transliteratedLines = [];
 
-            replaceStatus.innerText = error.message;
+            replaceStatus.innerText = getMessage(error.message);
             return false;
         } finally {
             updateButtons();
@@ -507,7 +540,7 @@ function replaceCells(standard, direction) {
 
         replaceStatus.innerText =
             sourceText && convertedText === comparableSource
-                ? NO_LETTERS_STATUS[direction]
+                ? getMessage(NO_LETTERS_STATUS[direction])
                 : "";
         return true;
     }
@@ -523,7 +556,7 @@ function replaceCells(standard, direction) {
 
         busyReplacing = true;
         updateButtons();
-        replaceStatus.innerText = "Replacing...";
+        replaceStatus.innerText = getMessage("Replacing...");
 
         try {
             if (window.Asc.plugin.info.editorType === "cell") {
@@ -534,7 +567,7 @@ function replaceCells(standard, direction) {
                         await confirmLargeRange(selectedCellCount);
 
                     if (!shouldContinue) {
-                        replaceStatus.innerText = "Replacement canceled";
+                        replaceStatus.innerText = getMessage("Replacement canceled");
                         return;
                     }
                 }
@@ -557,7 +590,10 @@ function replaceCells(standard, direction) {
                 }
 
                 replaceStatus.innerText =
-                    "Replaced " + count + (count === 1 ? " cell" : " cells");
+                    getMessage(
+                        count === 1 ? "Replaced {count} cell" : "Replaced {count} cells",
+                        { count: count },
+                    );
                 return;
             }
 
@@ -572,7 +608,7 @@ function replaceCells(standard, direction) {
             });
 
             if (isDone === false) {
-                replaceStatus.innerText = "Could not replace this selection";
+                replaceStatus.innerText = getMessage("Could not replace this selection");
                 return;
             }
 
@@ -584,9 +620,9 @@ function replaceCells(standard, direction) {
                 direction,
             );
 
-            replaceStatus.innerText = "Done";
+            replaceStatus.innerText = getMessage("Done");
         } catch (error) {
-            replaceStatus.innerText = error.message;
+            replaceStatus.innerText = getMessage(error.message);
         } finally {
             busyReplacing = false;
             updateButtons();
@@ -614,10 +650,13 @@ function replaceCells(standard, direction) {
         buttons.copy = copyButton;
         buttons.refresh = refreshButton;
 
+        window.Asc.plugin.onTranslate = translateStaticText;
+        translateStaticText();
+
         try {
             await Transliterator.load();
         } catch (error) {
-            replaceStatus.innerText = "Could not load transliteration tables";
+            replaceStatus.innerText = getMessage("Could not load transliteration tables");
             replaceButton.disabled = true;
             return;
         }
@@ -661,7 +700,7 @@ function replaceCells(standard, direction) {
                         items: [
                             {
                                 id: "transliterateSelection",
-                                text: "Transliterate",
+                                text: getMessage("Transliterate"),
                             },
                         ],
                     },
