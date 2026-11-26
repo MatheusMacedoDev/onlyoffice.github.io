@@ -1,11 +1,12 @@
 {
     "name"       : "Transliterator",
+    "offered": "Matheus Macedo",
     "nameLocale": {
         "ru": "Транслитератор",
         "pt-BR": "Transliterador"
     },
     "guid"       : "asc.{aaffc8aa-8e37-4fc6-aebf-6d2704788148}",
-    "version": "0.0.1",
+    "version": "1.0.1",
     "variations" : [
         {
             "description"         : "transliterator",
